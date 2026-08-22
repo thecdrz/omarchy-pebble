@@ -9,7 +9,7 @@ local.
 ## Current behavior
 
 - Defaults to a fully animated Linux-inspired penguin with a genuinely tucked four-frame sleep loop and six-frame waddle
-- Adds authored start, stop, turn, settle, upright-sleep, idle-personality, and belly-slide sequences
+- Adds authored start, stop, turn, settle, tucked-sleep, idle-personality, and belly-slide sequences
 - Uses a small personality director: sleepy autonomous outings, curious invited outings, and playful repeated-poke reactions
 - Prevents directed adventures from repeating back-to-back and applies per-episode cooldowns
 - Adds nine autonomous micro-stories, including edge watching, firefly following, collection play, stretching, and listening behind the clock
