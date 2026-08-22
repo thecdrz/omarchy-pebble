@@ -1449,7 +1449,10 @@ Item {
         opacity: root.action === "idleAction" && root.previousIdleFrame >= 0 ? root.idleBlend : 1
         source: root.isPenguin && (root.action === "emerging" || root.action === "settling") ? Qt.resolvedUrl(root.speciesBase + "settle/" + root.poseFrame + ".png")
           : root.isPenguin && root.action === "starting" ? Qt.resolvedUrl(root.speciesBase + "start/" + root.poseFrame + ".png")
-          : root.isPenguin && root.action === "stopping" ? Qt.resolvedUrl(root.speciesBase + "stop/" + root.poseFrame + ".png")
+          // Reverse the same silhouette used to accelerate.  The original stop
+          // drawings were substantially narrower, which made the following
+          // front-facing idle pose appear to jump in scale.
+          : root.isPenguin && root.action === "stopping" ? Qt.resolvedUrl(root.speciesBase + "start/" + (3 - root.poseFrame) + ".png")
           : root.isPenguin && root.action === "idleAction" ? Qt.resolvedUrl(root.speciesBase + "idle-actions/" + root.idleFrame + ".png")
           : root.isPenguin && root.action === "sliding" ? Qt.resolvedUrl(root.speciesBase + "slide/" + root.poseFrame + ".png")
           : root.isPenguin && root.action === "slipping" ? Qt.resolvedUrl(root.speciesBase + "slip/" + root.poseFrame + ".png")

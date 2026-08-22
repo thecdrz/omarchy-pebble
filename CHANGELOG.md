@@ -19,8 +19,8 @@ All notable changes to Pebble are documented here.
 
 - Normal autonomous cadence is now 30–75 seconds; Lively is 14–40 seconds.
 - The `z` marker appears only during intermittent deep sleep.
-- Forward-facing idle and wake outliers are normalized to Pebble's established apparent scale.
-- Asset validation now rejects oversized visible bounding boxes in core penguin sequences.
+- Locomotion now reverses the same silhouette sequence for braking, removing the apparent size jump into a front-facing idle.
+- Asset validation now checks visible bounds and opaque silhouette mass across every penguin animation frame.
 - Adopted the permanent public plugin ID `io.github.thecdrz.pebble`.
 - Resting moments now arrive less mechanically and choose among several behaviors.
 - Autonomous outings draw from a much larger weighted story pool while keeping the journal and controls unchanged.

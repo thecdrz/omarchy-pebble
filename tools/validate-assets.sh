@@ -6,12 +6,13 @@ failures=0
 
 check_sequence() {
   local species="$1" name="$2" expected="$3" max_height_spread="$4" max_components="${5:-1}" max_visible_area="${6:-0}"
+  local min_opaque_pixels="${7:-0}" max_opaque_pixels="${8:-0}"
   local directory="$root_dir/assets/species/$species/$name"
   local count=0 min_height=999 max_height=0
 
   for frame in "$directory"/*.png; do
     count=$((count + 1))
-    local dimensions geometry width height x y right bottom components
+    local dimensions geometry width height x y right bottom components opaque_pixels
     dimensions="$(identify -format '%wx%h' "$frame")"
     if [[ "$dimensions" != "56x34" ]]; then
       echo "FAIL $frame: expected 56x34, got $dimensions" >&2
@@ -44,6 +45,15 @@ check_sequence() {
       echo "FAIL $frame: visible area box $((width * height)) exceeds $max_visible_area px ($geometry)" >&2
       failures=$((failures + 1))
     fi
+    opaque_pixels="$(magick "$frame" -alpha extract -threshold 10% -format '%[fx:round(mean*w*h)]' info:)"
+    if (( min_opaque_pixels > 0 && opaque_pixels < min_opaque_pixels )); then
+      echo "FAIL $frame: silhouette mass $opaque_pixels px is below $min_opaque_pixels px" >&2
+      failures=$((failures + 1))
+    fi
+    if (( max_opaque_pixels > 0 && opaque_pixels > max_opaque_pixels )); then
+      echo "FAIL $frame: silhouette mass $opaque_pixels px exceeds $max_opaque_pixels px" >&2
+      failures=$((failures + 1))
+    fi
     (( height < min_height )) && min_height="$height"
     (( height > max_height )) && max_height="$height"
   done
@@ -64,15 +74,15 @@ for species_dir in "$root_dir"/assets/species/*; do
     check_sequence "$species" wake 8 10
     check_sequence "$species" walk 6 10
   elif [[ "$species" == "penguin" ]]; then
-    check_sequence "$species" wake 8 5 1 950
-    check_sequence "$species" walk 6 3 1 950
-    check_sequence "$species" settle 4 3
-    check_sequence "$species" sleep-loop 4 3 2 600
-    check_sequence "$species" idle-actions 8 8 2 950
-    check_sequence "$species" start 4 4
-    check_sequence "$species" stop 4 5
-    check_sequence "$species" slide 8 12
-    check_sequence "$species" slip 16 12 3
+    check_sequence "$species" wake 8 5 1 950 500 700
+    check_sequence "$species" walk 6 3 1 950 450 630
+    check_sequence "$species" settle 4 3 1 0 570 640
+    check_sequence "$species" sleep-loop 4 3 2 600 300 450
+    check_sequence "$species" idle-actions 8 8 2 950 380 700
+    check_sequence "$species" start 4 4 1 0 570 650
+    check_sequence "$species" stop 4 5 1 0 370 450
+    check_sequence "$species" slide 8 12 1 0 400 1320
+    check_sequence "$species" slip 16 12 3 0 560 750
   else
     check_sequence "$species" wake 8 4
     check_sequence "$species" walk 6 2
