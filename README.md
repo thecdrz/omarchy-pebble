@@ -12,6 +12,10 @@ local.
 - Adds authored start, stop, turn, settle, tucked-sleep, idle-personality, and belly-slide sequences
 - Uses a small personality director: sleepy autonomous outings, curious invited outings, and playful repeated-poke reactions
 - Prevents directed adventures from repeating back-to-back and applies per-episode cooldowns
+- Remembers the eight most recent episode types and avoids the last three when choosing what happens next
+- Develops from new neighbor to familiar friend to trusted companion through time and shared outings
+- Develops a favorite kind of collected object and uses it during quiet nest-tidying routines
+- Reacts gently to time of day and occasional workspace changes without reading application content
 - Adds nine autonomous micro-stories, including edge watching, firefly following, collection play, stretching, and listening behind the clock
 - Unlocks pebble, leaf, and collection stories from Pebble's actual memories instead of exposing them immediately
 - Reserves stargazing and star dreams for the evening while varying dreams and nest-tidying at home
@@ -47,12 +51,14 @@ local.
 - Sometimes discovers a leaf, pebble, or rare star and visibly carries it home
 - Records outings, pokes, distance, and discoveries in a private local journal
 - Offers Quiet, Normal, and Lively activity plus a one-hour Snooze / Wake now control
+- Offers Reduced Motion without adding a separate settings surface or disabling direct interaction
 - Uses a six-frame walking cycle with compositor-driven movement
 - Uses authored eight-frame emerge and return transitions
 - Is click-through everywhere except its body or den
 - Uses preloaded natural-color poses with a light live theme tint
 - Exposes `pet`, `roam`, and `sleep` shell actions
 - Does not monitor global keyboard or pointer input
+- Makes no runtime network requests and stores only bounded local companion state
 - Opens only a compact, user-requested journal and never covers application windows during ordinary behavior
 
 ## Interaction
@@ -63,9 +69,14 @@ local.
 - Right-click the den or companion to open the local journal.
 - Middle-click to send the companion home.
 - Use **Snooze 1h** in the journal to pause autonomous outings; direct interaction wakes Pebble early.
+- Use **Motion · Reduced** to suppress dramatic autonomous antics and continuous breathing animation.
 
 Journal state is stored at
 `~/.local/state/omarchy/pebble/state.json`. It never leaves the machine.
+
+On a new installation, Pebble's first journal note explains that it explores the
+entire bar, rests near the center widgets, and remembers discoveries. There is no
+forced tutorial or automatic popup.
 
 ## Companion identity
 
@@ -81,10 +92,11 @@ skins.
 ## Asset checks
 
 Animation frames are validated for canvas size, margins, connected silhouettes,
-and scale consistency. Run the checks after changing any sprite:
+and scale consistency. Runtime-order GIFs make transition pops visible:
 
 ```sh
 tools/validate-assets.sh
+tools/render-animation-reels.sh
 ```
 
 ## Compatibility
@@ -96,13 +108,19 @@ tools/validate-assets.sh
 Pebble intentionally stays dormant on vertical bars. Multi-monitor placement
 uses Omarchy's per-window screen information; the current release has been
 implemented against that API but physically exercised on a single-monitor
-system.
+system. See [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) for the explicit
+physical test matrix.
 
 ## Release notes
 
-This repository currently tracks the `0.21.0` development preview. No stable
+This repository currently tracks the `0.22.0` development preview. No stable
 release has been published yet. See [`CHANGELOG.md`](CHANGELOG.md) for the
 development history.
+
+Release evidence and tester instructions live in
+[`docs/READINESS.md`](docs/READINESS.md) and
+[`docs/BETA_TESTING.md`](docs/BETA_TESTING.md). Run `tools/validate-release.sh`
+before sharing a build and `tools/soak-test.sh` for the 24-hour stability gate.
 
 ## Install
 
@@ -135,6 +153,8 @@ omarchy-shell io.github.thecdrz.pebble clock
 omarchy-shell io.github.thecdrz.pebble retreat
 omarchy-shell io.github.thecdrz.pebble discover
 omarchy-shell io.github.thecdrz.pebble journal
+omarchy-shell io.github.thecdrz.pebble motion reduced
+omarchy-shell io.github.thecdrz.pebble motion full
 ```
 
 ## Remove
@@ -146,6 +166,16 @@ omarchy plugin remove io.github.thecdrz.pebble
 Removal intentionally leaves the private journal in
 `~/.local/state/omarchy/pebble/state.json`, allowing a later reinstall
 to resume. Delete that file separately only when you also want to reset Pebble.
+
+Back up or reset state explicitly:
+
+```sh
+cp ~/.local/state/omarchy/pebble/state.json ~/pebble-state-backup.json
+rm ~/.local/state/omarchy/pebble/state.json
+```
+
+Pebble's complete data contract is documented in [`PRIVACY.md`](PRIVACY.md),
+and artwork provenance is recorded in [`ASSET_LICENSES.md`](ASSET_LICENSES.md).
 
 ## License
 

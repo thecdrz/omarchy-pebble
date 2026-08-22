@@ -6,6 +6,11 @@ All notable changes to Pebble are documented here.
 
 ### Added
 
+- Bounded eight-episode history, per-story counts, repeat-avoidance metrics, and a persistent relationship stage.
+- Privacy-safe ambient reactions to time and occasional workspace changes.
+- A Reduced Motion preference that suppresses dramatic autonomous antics and continuous ambient animation.
+- Runtime-order animation reels, a 24-hour soak harness, and a consolidated release validator.
+- Privacy, asset provenance, compatibility, beta-testing, and evidence-based release-readiness documents.
 - A genuinely tucked four-frame sleep loop with subtle breathing.
 - Visible penguin wake-and-look and preening moments while resting.
 - Occasional multi-act outings that linger or continue to another destination.
@@ -17,6 +22,7 @@ All notable changes to Pebble are documented here.
 
 ### Changed
 
+- Local state schema advanced to version 9 for relationship, accessibility, and bounded variety history.
 - Normal autonomous cadence is now 30–75 seconds; Lively is 14–40 seconds.
 - The `z` marker appears only during intermittent deep sleep.
 - Locomotion now reverses the same silhouette sequence for braking, removing the apparent size jump into a front-facing idle.

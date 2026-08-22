@@ -104,6 +104,16 @@ Item {
   property bool snoozed: false
   property double snoozeUntil: 0
   property int activityLevel: 1
+  property bool reducedMotion: false
+  property bool introSeen: false
+  property double firstMetAt: 0
+  property string lastSeenDay: ""
+  property int daysTogether: 1
+  property var recentEpisodes: []
+  property var episodeCounts: ({})
+  property int repeatAvoided: 0
+  property int workspaceChanges: 0
+  property double lastContextReactionAt: 0
   property int outings: 0
   property int totalPokes: 0
   property int distanceWalked: 0
@@ -124,6 +134,12 @@ Item {
   readonly property string carriedGlyph: carriedItem === "leaf" ? "◆" : carriedItem === "pebble" ? "●" : carriedItem === "star" ? "✦" : ""
   readonly property string discoveryGlyph: discoveryItem === "leaf" ? "◆" : discoveryItem === "pebble" ? "●" : discoveryItem === "star" ? "✦" : ""
   readonly property string activityName: activityLevel === 0 ? "Quiet" : activityLevel === 2 ? "Lively" : "Normal"
+  readonly property string motionName: reducedMotion ? "Reduced" : "Full"
+  readonly property string favoriteItem: pebblesFound >= leavesFound && pebblesFound >= starsFound && pebblesFound > 0 ? "pebbles"
+    : leavesFound >= starsFound && leavesFound > 0 ? "leaves" : starsFound > 0 ? "stars" : "quiet corners"
+  readonly property string bondName: daysTogether >= 14 || outings >= 100 ? "Trusted companion"
+    : daysTogether >= 4 || outings >= 25 ? "Familiar friend" : "New neighbor"
+  readonly property int focusedWorkspaceId: Hyprland.focusedWorkspace ? Number(Hyprland.focusedWorkspace.id) : -1
   readonly property bool sleeping: action === "home"
   readonly property bool walking: action === "walk" || action === "clockApproach"
   readonly property bool posing: action === "emerging" || action === "entering" || action === "starting" || action === "stopping" || action === "settling" || action === "sliding" || action === "slipping" || action === "clockApproach" || action === "clockHidden" || action === "clockPeek"
@@ -262,9 +278,18 @@ Item {
   }
   function markEpisode(name) {
     var now = Date.now()
+    var duplicateStart = lastDirectedEpisode === name && now - lastDirectedEpisodeAt < 10000
     episodeTimes[name] = now
     lastDirectedEpisode = name
     lastDirectedEpisodeAt = now
+    if (duplicateStart) { saveState(); return }
+    var history = recentEpisodes.slice(0)
+    history.unshift(name)
+    recentEpisodes = history.slice(0, 8)
+    var counts = Object.assign({}, episodeCounts)
+    counts[name] = safeCounter(counts[name]) + 1
+    episodeCounts = counts
+    saveState()
   }
   function rememberEvent(message, priority) {
     var now = Date.now()
@@ -277,7 +302,11 @@ Item {
   function chooseDirectedEpisode(interactive) {
     var pool = []
     function add(name, weight) {
-      if (!storyEligible(name) || !episodeReady(name) || name === lastDirectedEpisode) return
+      if (reducedMotion && (name === "slide" || name === "slip" || name === "lost-pebble")) return
+      if (!storyEligible(name) || !episodeReady(name) || recentEpisodes.slice(0, 3).indexOf(name) >= 0) {
+        if (storyEligible(name) && episodeReady(name)) repeatAvoided++
+        return
+      }
       for (var index = 0; index < weight; index++) pool.push(name)
     }
     if (activityLevel === 2) {
@@ -292,7 +321,9 @@ Item {
     if (pool.length === 0) {
       var fallbacks = ["discovery", "clock", "slide", "slip"]
       for (var fallbackIndex = 0; fallbackIndex < fallbacks.length; fallbackIndex++)
-        if (episodeReady(fallbacks[fallbackIndex])) pool.push(fallbacks[fallbackIndex])
+        if (episodeReady(fallbacks[fallbackIndex]) && recentEpisodes.slice(0, 3).indexOf(fallbacks[fallbackIndex]) < 0
+            && (!reducedMotion || (fallbacks[fallbackIndex] !== "slide" && fallbacks[fallbackIndex] !== "slip")))
+          pool.push(fallbacks[fallbackIndex])
     }
     return pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : "walk"
   }
@@ -306,7 +337,7 @@ Item {
   }
   function queueAutonomousEpisode() {
     if (!isPenguin || clockQueued || retreatQueued || slipQueued || playfulQueued || queuedDiscoveryItem !== "") return
-    var episodeChance = activityLevel === 2 ? 0.74 : 0.46
+    var episodeChance = reducedMotion ? 0.34 : activityLevel === 2 ? 0.74 : 0.46
     if (Math.random() < episodeChance) queueEpisode(chooseDirectedEpisode(false))
   }
   function inviteExplore() {
@@ -373,7 +404,7 @@ Item {
     rustling = false
     if (interactive !== undefined) personalityMood = interactive ? (pokeCount >= 2 ? "playful" : "curious") : "sleepy"
     outings++; saveState()
-    var lingerChance = activityLevel === 2 ? 0.62 : 0.36
+    var lingerChance = reducedMotion ? 0.20 : activityLevel === 2 ? 0.62 : 0.36
     outingActsRemaining = Math.random() < lingerChance ? (activityLevel === 2 && Math.random() < 0.18 ? 2 : 1) : 0
     journeyPhase = "outbound"; petX = homeX + 5; direction = 1
     poseFrame = isPenguin ? 3 : 0; action = "emerging"; poseTimer.interval = 155; poseTimer.restart()
@@ -764,7 +795,7 @@ Item {
       else if (stage === 3) { storyPropOpacity = 0; homeStoryDelay(400) }
       else finishHomeStory()
     } else if (homeStoryName === "nest-tidy") {
-      if (stage === 0) { storyPropGlyph = collectionSize() > 0 ? (Math.random() < 0.55 ? "●" : "◆") : "·"; storyPropX = homeX + petWidth - 8; storyPropY = 18; storyPropOpacity = 0.8; den.rustleRotation = -1.8; homeStoryDelay(480) }
+      if (stage === 0) { storyPropGlyph = favoriteItem === "pebbles" ? "●" : favoriteItem === "leaves" ? "◆" : favoriteItem === "stars" ? "✦" : "·"; storyPropX = homeX + petWidth - 8; storyPropY = 18; storyPropOpacity = 0.8; den.rustleRotation = -1.8; homeStoryDelay(480) }
       else if (stage === 1) { storyPropX += 9; storyPropRotation = 80; den.rustleRotation = 1.8; homeStoryDelay(520) }
       else if (stage === 2) { storyPropX -= 5; storyPropOpacity = 0; den.rustleRotation = -0.8; homeStoryDelay(450) }
       else finishHomeStory()
@@ -797,14 +828,14 @@ Item {
     totalPokes++; saveState()
     if (sleeping) wakeAndWalk(true)
     else if (posing) {
-      if (pokeCount >= 3 && isPenguin) retreatQueued = true
-      else if (pokeCount >= 2 && isPenguin) playfulQueued = true
+      if (!reducedMotion && pokeCount >= 3 && isPenguin) retreatQueued = true
+      else if (!reducedMotion && pokeCount >= 2 && isPenguin) playfulQueued = true
     }
     else {
       if (storyName !== "") cancelStory()
       walkMotion.stop(); curiosityAnimation.stop(); acknowledgeAnimation.stop(); playfulAnimation.stop()
-      if (pokeCount >= 3 && isPenguin) startClockEpisode(true)
-      else if (pokeCount >= 2 && isPenguin) startSlide()
+      if (!reducedMotion && pokeCount >= 3 && isPenguin) startClockEpisode(true)
+      else if (!reducedMotion && pokeCount >= 2 && isPenguin) startSlide()
       else if (pokeCount >= 2) playfulAnimation.restart(); else acknowledgeAnimation.restart()
     }
   }
@@ -829,6 +860,36 @@ Item {
     }
     return cleaned
   }
+  function episodeNames() {
+    return ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen"]
+  }
+  function cleanRecentEpisodes(raw) {
+    var cleaned = []
+    if (!Array.isArray(raw)) return cleaned
+    var names = episodeNames()
+    for (var index = 0; index < raw.length && cleaned.length < 8; index++) {
+      var name = String(raw[index] || "")
+      if (names.indexOf(name) >= 0 && (cleaned.length === 0 || cleaned[cleaned.length - 1] !== name)) cleaned.push(name)
+    }
+    return cleaned
+  }
+  function cleanEpisodeCounts(raw) {
+    var cleaned = ({})
+    if (!raw || typeof raw !== "object") return cleaned
+    var names = episodeNames()
+    for (var index = 0; index < names.length; index++) {
+      var count = safeCounter(raw[names[index]])
+      if (count > 0) cleaned[names[index]] = count
+    }
+    return cleaned
+  }
+  function noteVisit() {
+    var now = Date.now()
+    var today = new Date(now).toISOString().slice(0, 10)
+    if (firstMetAt <= 0) firstMetAt = now
+    if (lastSeenDay !== "" && lastSeenDay !== today) daysTogether = Math.max(1, daysTogether + 1)
+    lastSeenDay = today
+  }
   function loadState(raw) {
     try {
       var data = JSON.parse(String(raw || "{}"))
@@ -851,15 +912,24 @@ Item {
       slipsCompleted = safeCounter(data.slips)
       clockPassages = safeCounter(data.passages)
       suspiciousRetreats = safeCounter(data.retreats)
-      recentEvent = String(data.recentEvent || "Settled into a new home in the bar.").slice(0, 240)
+      recentEvent = String(data.recentEvent || "I'm Pebble. I wander the whole bar, rest here, and remember what I find.").slice(0, 240)
       recentEventAt = safeTimestamp(data.recentEventAt, Date.now() + 60000)
       recentEventPriority = Math.max(0, Math.min(3, safeCounter(data.recentEventPriority)))
       episodeTimes = cleanEpisodeTimes(data.episodeTimes)
+      recentEpisodes = cleanRecentEpisodes(data.recentEpisodes)
+      episodeCounts = cleanEpisodeCounts(data.episodeCounts)
+      repeatAvoided = safeCounter(data.repeatAvoided)
       var storedEpisode = String(data.lastDirectedEpisode || "")
       lastDirectedEpisode = ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen"].indexOf(storedEpisode) >= 0 ? storedEpisode : ""
       lastDirectedEpisodeAt = safeTimestamp(data.lastDirectedEpisodeAt, Date.now() + 60000)
       var storedActivity = Number(data.activity)
       activityLevel = isNaN(storedActivity) ? 1 : Math.max(0, Math.min(2, storedActivity))
+      reducedMotion = data.reducedMotion === true
+      introSeen = data.introSeen === true
+      firstMetAt = safeTimestamp(data.firstMetAt, Date.now() + 60000)
+      lastSeenDay = /^\d{4}-\d{2}-\d{2}$/.test(String(data.lastSeenDay || "")) ? String(data.lastSeenDay) : ""
+      daysTogether = Math.max(1, Math.min(100000, safeCounter(data.daysTogether) || 1))
+      noteVisit()
       snoozeUntil = safeTimestamp(data.snoozeUntil, Date.now() + 60 * 60 * 1000)
       snoozed = snoozeUntil > Date.now()
       if (snoozed) {
@@ -872,16 +942,24 @@ Item {
   function saveState() {
     if (!stateReady || !stateDirReady) return
     stateFile.setText(JSON.stringify({
-      version: 8, species: speciesId, concept: conceptId, outings: outings, pokes: totalPokes,
+      version: 9, species: speciesId, concept: conceptId, outings: outings, pokes: totalPokes,
       distance: distanceWalked, leaves: leavesFound, pebbles: pebblesFound,
       stars: starsFound, slides: slidesCompleted, slips: slipsCompleted,
       passages: clockPassages, retreats: suspiciousRetreats, recentEvent: recentEvent,
       recentEventAt: recentEventAt, recentEventPriority: recentEventPriority,
       episodeTimes: episodeTimes, lastDirectedEpisode: lastDirectedEpisode, lastDirectedEpisodeAt: lastDirectedEpisodeAt,
-      activity: activityLevel, snoozeUntil: snoozeUntil
+      recentEpisodes: recentEpisodes, episodeCounts: episodeCounts, repeatAvoided: repeatAvoided,
+      activity: activityLevel, reducedMotion: reducedMotion, introSeen: introSeen,
+      firstMetAt: firstMetAt, lastSeenDay: lastSeenDay, daysTogether: daysTogether, snoozeUntil: snoozeUntil
     }, null, 2) + "\n")
   }
   function cycleActivity() { activityLevel = (activityLevel + 1) % 3; saveState(); scheduleRoam() }
+  function acknowledgeIntro() { if (!introSeen) { introSeen = true; saveState() } }
+  function toggleReducedMotion() {
+    reducedMotion = !reducedMotion
+    if (reducedMotion && (action === "sliding" || action === "slipping")) goToSleep()
+    saveState(); scheduleRoam()
+  }
   function snoozeOneHour() {
     snoozeUntil = Date.now() + 60 * 60 * 1000
     snoozed = true
@@ -915,6 +993,7 @@ Item {
     scheduleRoam()
   }
   function handlePetClick(button) {
+    acknowledgeIntro()
     if (button === Qt.RightButton) panelOpen = !panelOpen
     else if (button === Qt.MiddleButton) goToSleep()
     else if (auditioning) startConceptMotion(true)
@@ -933,6 +1012,17 @@ Item {
   }
   onPetScreenChanged: {
     if (placed) goToSleep()
+  }
+  onFocusedWorkspaceIdChanged: {
+    if (stateReady && focusedWorkspaceId >= 0) {
+      workspaceChanges++
+      var now = Date.now()
+      if (sleeping && !snoozed && !barHidden && workspaceChanges % 4 === 0 && now - lastContextReactionAt > 8 * 60 * 1000) {
+        lastContextReactionAt = now
+        peekTimer.interval = reducedMotion ? 2600 : 1200
+        peekTimer.restart()
+      }
+    }
   }
   onBarHiddenChanged: {
     panelOpen = false
@@ -1000,7 +1090,7 @@ Item {
   Timer { id: sleepMarkerTimer; onTriggered: root.advanceSleepMarker() }
   Timer {
     id: sleepLoopTimer
-    interval: 2600; repeat: true; running: root.sleeping && root.isPenguin && !root.rustling
+    interval: 2600; repeat: true; running: root.sleeping && root.isPenguin && !root.rustling && !root.reducedMotion
     onTriggered: root.sleepFrame = (root.sleepFrame + 1) % 4
   }
   Timer {
@@ -1211,7 +1301,7 @@ Item {
     ScriptAction { script: root.startReturn() }
   }
   SequentialAnimation {
-    id: breathing; running: !root.sleeping && !root.walking && !root.posing && !root.auditioning; loops: Animation.Infinite
+    id: breathing; running: !root.reducedMotion && !root.sleeping && !root.walking && !root.posing && !root.auditioning; loops: Animation.Infinite
     onRunningChanged: if (!running) animal.breathScale = 1
     NumberAnimation { target: animal; property: "breathScale"; to: 1.025; duration: 1750; easing.type: Easing.InOutSine }
     NumberAnimation { target: animal; property: "breathScale"; to: 1; duration: 1950; easing.type: Easing.InOutSine }
@@ -1289,6 +1379,13 @@ Item {
     function dream(): void {
       root.goToSleep(); peekTimer.stop()
       root.homeStoryName = "dream"; root.homeStoryStage = 0; root.advanceHomeStory()
+    }
+    function motion(mode: string): void {
+      var wanted = String(mode || "").toLowerCase()
+      if (wanted === "reduced" || wanted === "on") root.reducedMotion = true
+      else if (wanted === "full" || wanted === "off") root.reducedMotion = false
+      else root.reducedMotion = !root.reducedMotion
+      root.saveState(); root.scheduleRoam()
     }
     function journal(): void { root.panelOpen = !root.panelOpen }
   }
@@ -1517,7 +1614,7 @@ Item {
     owner: root
     open: root.panelOpen
     contentWidth: 270
-    contentHeight: 230
+    contentHeight: 252
 
     Column {
       anchors.fill: parent
@@ -1554,7 +1651,7 @@ Item {
       Row {
         spacing: 5
         Rectangle { width: 3; height: 9; color: Color.accent; anchors.verticalCenter: parent.verticalCenter }
-        Text { text: "MEMORIES"; color: Color.bar.text; opacity: 0.82; font.pixelSize: 9; font.bold: true }
+        Text { text: "MEMORIES  ·  " + root.bondName.toUpperCase(); color: Color.bar.text; opacity: 0.82; font.pixelSize: 9; font.bold: true }
       }
       Text {
         text: "● " + root.pebblesFound + " pebbles     ◆ " + root.leavesFound + " leaves     ✦ " + root.starsFound + " stars"
@@ -1593,20 +1690,22 @@ Item {
           MouseArea { id: snoozeMouse; anchors.fill: parent; hoverEnabled: true; onClicked: root.toggleSnooze() }
         }
       }
-      Rectangle {
-        width: 246; height: 24; radius: 5; color: "transparent"
-        border.width: activityMouse.containsMouse ? 1 : 0; border.color: Color.accent
+      Row {
+        spacing: 8
         Rectangle {
-          anchors.fill: parent; radius: parent.radius
-          color: activityMouse.containsMouse ? Color.accent : Color.bar.text
-          opacity: activityMouse.containsMouse ? 0.18 : 0.07
+          width: 119; height: 24; radius: 5; color: "transparent"
+          border.width: activityMouse.containsMouse ? 1 : 0; border.color: Color.accent
+          Rectangle { anchors.fill: parent; radius: parent.radius; color: activityMouse.containsMouse ? Color.accent : Color.bar.text; opacity: activityMouse.containsMouse ? 0.18 : 0.07 }
+          Text { anchors.centerIn: parent; text: "Activity · " + root.activityName; color: Color.bar.text; opacity: 0.76; font.pixelSize: 9 }
+          MouseArea { id: activityMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { root.acknowledgeIntro(); root.cycleActivity() } }
         }
-        Text {
-          anchors.centerIn: parent
-          text: "Activity  ·  " + root.activityName
-          color: Color.bar.text; opacity: 0.76; font.pixelSize: 9
+        Rectangle {
+          width: 119; height: 24; radius: 5; color: "transparent"
+          border.width: motionMouse.containsMouse || root.reducedMotion ? 1 : 0; border.color: Color.accent
+          Rectangle { anchors.fill: parent; radius: parent.radius; color: motionMouse.containsMouse ? Color.accent : Color.bar.text; opacity: motionMouse.containsMouse ? 0.18 : 0.07 }
+          Text { anchors.centerIn: parent; text: "Motion · " + root.motionName; color: Color.bar.text; opacity: 0.76; font.pixelSize: 9 }
+          MouseArea { id: motionMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { root.acknowledgeIntro(); root.toggleReducedMotion() } }
         }
-        MouseArea { id: activityMouse; anchors.fill: parent; hoverEnabled: true; onClicked: root.cycleActivity() }
       }
     }
   }
