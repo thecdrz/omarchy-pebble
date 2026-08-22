@@ -1283,11 +1283,11 @@ Item {
     }
     function home(name: string): void {
       if (["wake-look", "preen", "dream", "nest-tidy", "night-dream"].indexOf(name) < 0) return
-      root.goToSleep(); roamTimer.stop(); peekTimer.stop()
+      root.goToSleep(); peekTimer.stop()
       root.homeStoryName = name; root.homeStoryStage = 0; root.advanceHomeStory()
     }
     function dream(): void {
-      root.goToSleep(); roamTimer.stop(); peekTimer.stop()
+      root.goToSleep(); peekTimer.stop()
       root.homeStoryName = "dream"; root.homeStoryStage = 0; root.advanceHomeStory()
     }
     function journal(): void { root.panelOpen = !root.panelOpen }
