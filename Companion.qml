@@ -84,6 +84,9 @@ Item {
   property real storyPetOffset: 0
   property string homeStoryName: ""
   property int homeStoryStage: 0
+  property int homePoseFrame: 0
+  property bool deepSleeping: false
+  property int outingActsRemaining: 0
   property string personalityMood: "sleepy"
   property string episodeName: ""
   property real animalOpacity: 1
@@ -327,8 +330,8 @@ Item {
   function scheduleRoam() {
     if (auditioning) { roamTimer.stop(); scheduleConceptIdle(); return }
     if (barHidden || !horizontalBar || snoozed || activityLevel === 0) { roamTimer.stop(); return }
-    var base = activityLevel === 2 ? 18000 : 60000
-    var spread = activityLevel === 2 ? 42000 : 90000
+    var base = activityLevel === 2 ? 14000 : 30000
+    var spread = activityLevel === 2 ? 26000 : 45000
     roamTimer.interval = base + Math.floor(Math.random() * spread); roamTimer.restart()
   }
   function scheduleConceptIdle() {
@@ -353,13 +356,25 @@ Item {
   }
   function schedulePeek() {
     if (barHidden || !horizontalBar || snoozed) { peekTimer.stop(); return }
-    peekTimer.interval = 12000 + Math.floor(Math.random() * 18000)
+    peekTimer.interval = 8000 + Math.floor(Math.random() * 10000)
     peekTimer.restart()
   }
+  function scheduleSleepMarker() {
+    if (!sleeping || barHidden || !horizontalBar || homeStoryName !== "") {
+      sleepMarkerTimer.stop(); deepSleeping = false; return
+    }
+    sleepMarkerTimer.interval = deepSleeping
+      ? 2200 + Math.floor(Math.random() * 1800)
+      : 7000 + Math.floor(Math.random() * 9000)
+    sleepMarkerTimer.restart()
+  }
+  function advanceSleepMarker() { deepSleeping = !deepSleeping; scheduleSleepMarker() }
   function beginEmergence(interactive) {
     rustling = false
     if (interactive !== undefined) personalityMood = interactive ? (pokeCount >= 2 ? "playful" : "curious") : "sleepy"
     outings++; saveState()
+    var lingerChance = activityLevel === 2 ? 0.62 : 0.36
+    outingActsRemaining = Math.random() < lingerChance ? (activityLevel === 2 && Math.random() < 0.18 ? 2 : 1) : 0
     journeyPhase = "outbound"; petX = homeX + 5; direction = 1
     poseFrame = isPenguin ? 3 : 0; action = "emerging"; poseTimer.interval = 155; poseTimer.restart()
   }
@@ -371,6 +386,7 @@ Item {
     curiosityAnimation.stop(); settleTurn.stop(); poseTimer.stop()
     if (sleeping) {
       cancelHomeStory()
+      sleepMarkerTimer.stop(); deepSleeping = false
       personalityMood = interactive ? "curious" : activityLevel === 2 && Math.random() < 0.64 ? "playful" : "sleepy"
       if (interactive !== true) queueAutonomousEpisode()
       rustling = true; peekOpacity = 0.65; eyeOpen = 1; rustleAnimation.restart()
@@ -478,8 +494,8 @@ Item {
     return choice
   }
   function beginIdleRoutine() {
-    idleBeatsRemaining = personalityMood === "playful" ? 2 + Math.floor(Math.random() * 2)
-      : personalityMood === "curious" ? 1 + Math.floor(Math.random() * 2) : 1
+    idleBeatsRemaining = personalityMood === "playful" ? 3 + Math.floor(Math.random() * 2)
+      : personalityMood === "curious" ? 2 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 2)
     showIdleBeat()
   }
   function showIdleBeat() {
@@ -498,6 +514,11 @@ Item {
     else if (isPenguin && episodeName === "" && carriedItem === "" && journeyPhase === "outbound"
       && petX > passageRightX + petWidth && episodeReady("clock")
       && Math.random() < (activityLevel === 2 ? 0.28 : 0.14)) startClockEpisode(false)
+    else if (journeyPhase === "outbound" && carriedItem === "" && outingActsRemaining > 0) {
+      outingActsRemaining--
+      personalityMood = activityLevel === 2 && Math.random() < 0.58 ? "playful" : "curious"
+      episodeName = ""; finalCuriosity = false; planRoute()
+    }
     else startReturn()
   }
   function startClockEpisode(suspicious) {
@@ -697,10 +718,17 @@ Item {
   }
   function startHomeMoment() {
     if (!sleeping || rustling || snoozed || barHidden) { schedulePeek(); return }
+    deepSleeping = false; sleepMarkerTimer.stop()
     var roll = Math.random()
-    if (roll < 0.48) { peekAnimation.restart(); return }
-    homeStoryName = (currentHour() >= 20 || currentHour() < 6) && roll > 0.84 ? "night-dream"
-      : roll < 0.74 ? "dream" : "nest-tidy"
+    if (!isPenguin && roll < 0.48) { peekAnimation.restart(); return }
+    homeStoryName = isPenguin
+      ? roll < 0.25 ? "wake-look"
+        : roll < 0.44 ? "preen"
+        : roll < 0.65 ? "dream"
+        : (currentHour() >= 20 || currentHour() < 6) && roll > 0.86 ? "night-dream"
+        : "nest-tidy"
+      : (currentHour() >= 20 || currentHour() < 6) && roll > 0.84 ? "night-dream"
+        : roll < 0.74 ? "dream" : "nest-tidy"
     homeStoryStage = 0
     advanceHomeStory()
   }
@@ -710,13 +738,26 @@ Item {
   }
   function cancelHomeStory() {
     homeMomentTimer.stop(); homeStoryName = ""; homeStoryStage = 0
+    homePoseFrame = 0
     storyPropGlyph = ""; storyPropOpacity = 0; storyPropScale = 1; storyPropRotation = 0
     den.rustleRotation = 0
   }
-  function finishHomeStory() { cancelHomeStory(); schedulePeek() }
+  function finishHomeStory() { cancelHomeStory(); schedulePeek(); scheduleSleepMarker() }
   function advanceHomeStory() {
     var stage = homeStoryStage++
-    if (homeStoryName === "dream") {
+    if (homeStoryName === "wake-look") {
+      if (stage === 0) { homePoseFrame = 3; den.rustleRotation = -1.2; homeStoryDelay(620) }
+      else if (stage === 1) { homePoseFrame = 0; den.rustleRotation = 1.5; homeStoryDelay(780) }
+      else if (stage === 2) { homePoseFrame = 2; den.rustleRotation = -1; homeStoryDelay(680) }
+      else if (stage === 3) { den.rustleRotation = 0; homeStoryDelay(420) }
+      else finishHomeStory()
+    } else if (homeStoryName === "preen") {
+      if (stage === 0) { homePoseFrame = 6; den.rustleRotation = 1.2; homeStoryDelay(720) }
+      else if (stage === 1) { homePoseFrame = 0; den.rustleRotation = -1; homeStoryDelay(560) }
+      else if (stage === 2) { homePoseFrame = 6; den.rustleRotation = 1; homeStoryDelay(680) }
+      else if (stage === 3) { den.rustleRotation = 0; homeStoryDelay(420) }
+      else finishHomeStory()
+    } else if (homeStoryName === "dream") {
       if (stage === 0) { storyPropGlyph = "·"; storyPropX = homeX + petWidth - 5; storyPropY = 10; storyPropOpacity = 0.45; storyPropScale = 0.7; homeStoryDelay(650) }
       else if (stage === 1) { storyPropGlyph = "○"; storyPropX += 7; storyPropY = 5; storyPropOpacity = 0.8; storyPropScale = 0.9; homeStoryDelay(800) }
       else if (stage === 2) { storyPropGlyph = "z"; storyPropX += 6; storyPropY = 1; storyPropOpacity = 0.9; storyPropScale = 1.05; homeStoryDelay(900) }
@@ -738,10 +779,10 @@ Item {
   function curlUp() {
     cancelStory(); cancelHomeStory()
     action = "home"; journeyPhase = "home"; petX = doorwayX; poseFrame = 0; pokeCount = 0
-    sleepFrame = 0; idleBeatsRemaining = 0; playfulQueued = false; retreatQueued = false; clockQueued = false; slipQueued = false
+    sleepFrame = 0; idleBeatsRemaining = 0; outingActsRemaining = 0; playfulQueued = false; retreatQueued = false; clockQueued = false; slipQueued = false
     episodeName = ""; clockTransit = false; clockTransitEpisode = ""; animalOpacity = 1; discoveryVisible = false; discoveryItem = ""; personalityMood = "sleepy"
     animal.sniffRotation = 0; animal.hopOffset = 0; animal.breathScale = 1
-    peeking = false; rustling = false; peekOpacity = 0; scheduleRoam(); schedulePeek()
+    peeking = false; rustling = false; peekOpacity = 0; scheduleRoam(); schedulePeek(); scheduleSleepMarker()
   }
   function goToSleep() {
     walkMotion.stop(); curiosityAnimation.stop(); acknowledgeAnimation.stop(); playfulAnimation.stop()
@@ -896,7 +937,7 @@ Item {
   onBarHiddenChanged: {
     panelOpen = false
     if (barHidden) goToSleep()
-    else { scheduleRoam(); schedulePeek() }
+    else { scheduleRoam(); schedulePeek(); scheduleSleepMarker() }
   }
   onHorizontalBarChanged: {
     panelOpen = false
@@ -956,6 +997,7 @@ Item {
   Timer { id: idleActionTimer; onTriggered: root.advanceIdleRoutine() }
   Timer { id: storyTimer; onTriggered: root.advanceStory() }
   Timer { id: homeMomentTimer; onTriggered: root.advanceHomeStory() }
+  Timer { id: sleepMarkerTimer; onTriggered: root.advanceSleepMarker() }
   Timer {
     id: sleepLoopTimer
     interval: 2600; repeat: true; running: root.sleeping && root.isPenguin && !root.rustling
@@ -1240,7 +1282,7 @@ Item {
       root.storyQueued = name; root.episodeName = name; root.startQueuedStory()
     }
     function home(name: string): void {
-      if (["dream", "nest-tidy", "night-dream"].indexOf(name) < 0) return
+      if (["wake-look", "preen", "dream", "nest-tidy", "night-dream"].indexOf(name) < 0) return
       root.goToSleep(); roamTimer.stop(); peekTimer.stop()
       root.homeStoryName = name; root.homeStoryStage = 0; root.advanceHomeStory()
     }
@@ -1279,7 +1321,11 @@ Item {
       transformOrigin: Item.Bottom
       Image {
         anchors.fill: parent
-        source: Qt.resolvedUrl(root.speciesBase + (root.isPenguin ? "sleep-loop/" + root.sleepFrame + ".png" : "habitat.png"))
+        source: Qt.resolvedUrl(root.speciesBase + (root.isPenguin
+          ? root.homeStoryName === "wake-look" || root.homeStoryName === "preen"
+            ? "idle-actions/" + root.homePoseFrame + ".png"
+            : "sleep-loop/" + root.sleepFrame + ".png"
+          : "habitat.png"))
         fillMode: Image.PreserveAspectFit
         smooth: false
         mipmap: false
@@ -1289,7 +1335,7 @@ Item {
       Text {
         id: sleepMarker
         x: parent.width - 7; y: 0
-        visible: root.sleeping && root.isPenguin && !root.rustling && root.homeStoryName === ""
+        visible: root.sleeping && root.isPenguin && root.deepSleeping && !root.rustling && root.homeStoryName === ""
         text: "z"; color: Color.accent; font.pixelSize: 8; font.bold: true; z: 5
         SequentialAnimation on opacity {
           running: sleepMarker.visible; loops: Animation.Infinite

@@ -6,6 +6,9 @@ All notable changes to Pebble are documented here.
 
 ### Added
 
+- A genuinely tucked four-frame sleep loop with subtle breathing.
+- Visible penguin wake-and-look and preening moments while resting.
+- Occasional multi-act outings that linger or continue to another destination.
 - Nine autonomous micro-stories: edge inspection, firefly following, pebble polishing, leaf tossing, stargazing, collection sorting, stretching, runaway-pebble recovery, and listening behind the clock.
 - Three quieter at-home moments: drifting dreams, nest tidying, and a night-only star dream.
 - Memory-dependent stories that unlock naturally after Pebble has collected the relevant objects.
@@ -14,6 +17,10 @@ All notable changes to Pebble are documented here.
 
 ### Changed
 
+- Normal autonomous cadence is now 30–75 seconds; Lively is 14–40 seconds.
+- The `z` marker appears only during intermittent deep sleep.
+- Forward-facing idle and wake outliers are normalized to Pebble's established apparent scale.
+- Asset validation now rejects oversized visible bounding boxes in core penguin sequences.
 - Adopted the permanent public plugin ID `io.github.thecdrz.pebble`.
 - Resting moments now arrive less mechanically and choose among several behaviors.
 - Autonomous outings draw from a much larger weighted story pool while keeping the journal and controls unchanged.

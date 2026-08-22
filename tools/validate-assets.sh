@@ -5,7 +5,7 @@ root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 failures=0
 
 check_sequence() {
-  local species="$1" name="$2" expected="$3" max_height_spread="$4" max_components="${5:-1}"
+  local species="$1" name="$2" expected="$3" max_height_spread="$4" max_components="${5:-1}" max_visible_area="${6:-0}"
   local directory="$root_dir/assets/species/$species/$name"
   local count=0 min_height=999 max_height=0
 
@@ -40,6 +40,10 @@ check_sequence() {
       echo "FAIL $frame: expected at most $max_components connected silhouette parts, found $components" >&2
       failures=$((failures + 1))
     fi
+    if (( max_visible_area > 0 && width * height > max_visible_area )); then
+      echo "FAIL $frame: visible area box $((width * height)) exceeds $max_visible_area px ($geometry)" >&2
+      failures=$((failures + 1))
+    fi
     (( height < min_height )) && min_height="$height"
     (( height > max_height )) && max_height="$height"
   done
@@ -60,11 +64,11 @@ for species_dir in "$root_dir"/assets/species/*; do
     check_sequence "$species" wake 8 10
     check_sequence "$species" walk 6 10
   elif [[ "$species" == "penguin" ]]; then
-    check_sequence "$species" wake 8 4
-    check_sequence "$species" walk 6 3
+    check_sequence "$species" wake 8 5 1 950
+    check_sequence "$species" walk 6 3 1 950
     check_sequence "$species" settle 4 3
-    check_sequence "$species" sleep-loop 4 5
-    check_sequence "$species" idle-actions 8 8 2
+    check_sequence "$species" sleep-loop 4 3 2 600
+    check_sequence "$species" idle-actions 8 8 2 950
     check_sequence "$species" start 4 4
     check_sequence "$species" stop 4 5
     check_sequence "$species" slide 8 12

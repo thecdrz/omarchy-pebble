@@ -8,13 +8,15 @@ local.
 
 ## Current behavior
 
-- Defaults to a fully animated Linux-inspired penguin with a visible tucked sleeping pose and six-frame waddle
+- Defaults to a fully animated Linux-inspired penguin with a genuinely tucked four-frame sleep loop and six-frame waddle
 - Adds authored start, stop, turn, settle, upright-sleep, idle-personality, and belly-slide sequences
 - Uses a small personality director: sleepy autonomous outings, curious invited outings, and playful repeated-poke reactions
 - Prevents directed adventures from repeating back-to-back and applies per-episode cooldowns
 - Adds nine autonomous micro-stories, including edge watching, firefly following, collection play, stretching, and listening behind the clock
 - Unlocks pebble, leaf, and collection stories from Pebble's actual memories instead of exposing them immediately
 - Reserves stargazing and star dreams for the evening while varying dreams and nest-tidying at home
+- Wakes briefly to look around or preen while resting, with the sleep marker reserved for intermittent deep sleep
+- Starts Normal outings every 30–75 seconds and lets some journeys linger for a second or third activity
 - Gives rare stories their own six-to-twenty-minute cooldowns so the full repertoire unfolds gradually
 - Makes Quiet, Normal, and Lively distinct in frequency, playfulness, and spontaneous antics
 - Remembers rapid pokes without interrupting stand-up or stopping transitions
@@ -98,7 +100,7 @@ system.
 
 ## Release notes
 
-This repository currently tracks the `0.20.0` development preview. No stable
+This repository currently tracks the `0.21.0` development preview. No stable
 release has been published yet. See [`CHANGELOG.md`](CHANGELOG.md) for the
 development history.
 
