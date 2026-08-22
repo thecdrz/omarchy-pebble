@@ -465,8 +465,9 @@ Item {
     petX = targetX
     if (journeyPhase === "returning") { beginEntering(); return }
     var slipChance = activityLevel === 2 ? 0.20 : 0.10
-    if (isPenguin && !pauseOnRoute && personalityMood !== "sleepy" && carriedItem === ""
-      && episodeReady("slip") && Math.random() < slipChance) { startSlip(); return }
+    if (isPenguin && !reducedMotion && !pauseOnRoute && personalityMood !== "sleepy" && carriedItem === ""
+      && episodeReady("slip") && recentEpisodes.slice(0, 3).indexOf("slip") < 0
+      && Math.random() < slipChance) { startSlip(); return }
     if (isPenguin) { poseFrame = 0; action = "stopping"; poseTimer.interval = 105; poseTimer.restart(); return }
     finishStoppedLeg()
   }
@@ -487,7 +488,7 @@ Item {
       discoveryItem = queuedDiscoveryItem
       queuedDiscoveryItem = ""
     } else {
-      if (Math.random() > 0.58) return
+      if (!episodeReady("discovery") || recentEpisodes.slice(0, 3).indexOf("discovery") >= 0 || Math.random() > 0.58) return
       discoveryItem = randomDiscoveryType()
       episodeName = "discovery"
       markEpisode("discovery")
@@ -543,7 +544,7 @@ Item {
     idleBeatsRemaining--
     if (idleBeatsRemaining > 0) showIdleBeat()
     else if (isPenguin && episodeName === "" && carriedItem === "" && journeyPhase === "outbound"
-      && petX > passageRightX + petWidth && episodeReady("clock")
+      && petX > passageRightX + petWidth && episodeReady("clock") && recentEpisodes.slice(0, 3).indexOf("clock") < 0
       && Math.random() < (activityLevel === 2 ? 0.28 : 0.14)) startClockEpisode(false)
     else if (journeyPhase === "outbound" && carriedItem === "" && outingActsRemaining > 0) {
       outingActsRemaining--
