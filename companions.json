@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "residents": [
+    {
+      "id": "penguin",
+      "name": "Pebble",
+      "status": "ready",
+      "assetDirectory": "assets/species/penguin",
+      "temperament": "curious, calm, and slightly clumsy"
+    },
+    {
+      "id": "cat",
+      "name": "",
+      "status": "concept",
+      "asset": "assets/concepts/cat.png",
+      "temperament": "cozy and selectively affectionate"
+    },
+    {
+      "id": "songbird",
+      "name": "",
+      "status": "concept",
+      "asset": "assets/concepts/bird.png",
+      "temperament": "alert, musical, and social"
+    },
+    {
+      "id": "frog",
+      "name": "",
+      "status": "concept",
+      "asset": "assets/concepts/frog.png",
+      "temperament": "patient, springy, and quietly odd"
+    },
+    {
+      "id": "raccoon",
+      "name": "",
+      "status": "lab",
+      "assetDirectory": "assets/species/raccoon",
+      "temperament": "mischievous and investigative"
+    },
+    {
+      "id": "gecko",
+      "name": "",
+      "status": "lab",
+      "assetDirectory": "assets/species/gecko",
+      "temperament": "subtle, warm, and observant"
+    }
+  ]
+}
+

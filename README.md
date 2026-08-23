@@ -4,7 +4,8 @@ A quiet, expressive penguin companion who inhabits the Omarchy bar.
 
 Pebble is designed to feel like a tiny animal sharing the bar rather than a
 widget displaying one: curious, slightly clumsy, calm when ignored, and entirely
-local.
+local. He is the first fully authored resident in a planned companion roster,
+not a requirement that everyone prefer a penguin.
 
 ## Current behavior
 
@@ -88,6 +89,10 @@ journal until another character can match his animation and behavior depth.
 Artwork remains isolated under `assets/species/<species>/` so future characters
 can retain their own movement, home, and temperament without becoming simple
 skins.
+
+The roster model and the quality gate for adding another selectable resident are
+documented in [`docs/ROSTER.md`](docs/ROSTER.md). Concept art is not exposed as a
+public choice until its behavior and animation depth match Pebble's.
 
 ## Asset checks
 
