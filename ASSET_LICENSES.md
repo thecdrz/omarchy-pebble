@@ -8,3 +8,6 @@ Some project artwork was developed with generative image tooling and then croppe
 normalized, sequenced, and validated for use in the Omarchy bar. No third-party
 game sprites, character brands, fonts, sound recordings, or icon packs are bundled.
 
+The kangaroo, monkey, and dog roster concepts were generated as project-specific
+transparent pixel art from the existing Pebble concept direction, then normalized
+to the standard 56×34 audition canvas.

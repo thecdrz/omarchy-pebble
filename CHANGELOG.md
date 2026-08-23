@@ -12,6 +12,7 @@ All notable changes to Pebble are documented here.
 - Runtime-order animation reels, a 24-hour soak harness, and a consolidated release validator.
 - Privacy, asset provenance, compatibility, beta-testing, and evidence-based release-readiness documents.
 - A machine-readable companion roster and a production-readiness contract for future residents.
+- Bar-scale concept art and distinct behavior anchors for kangaroo, monkey, and dog residents.
 - A genuinely tucked four-frame sleep loop with subtle breathing.
 - Visible penguin wake-and-look and preening moments while resting.
 - Occasional multi-act outings that linger or continue to another destination.

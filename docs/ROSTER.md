@@ -62,7 +62,21 @@ A companion becomes `ready` only after it has:
 | Frog | Strong resting concept | Hop transitions, sleep, and stories |
 | Raccoon | Walk and wake prototypes | Coherent rest, transitions, signature actions, stories |
 | Gecko | Walk and wake prototypes | Coherent rest, transitions, signature actions, stories |
+| Kangaroo | Seated production-direction concept | Hop cycle, tail-balanced turns, sleep, home, and stories |
+| Monkey | Compact seated production-direction concept | Knuckle walk, tail motion, sleep, dexterous actions, and stories |
+| Dog | Resting production-direction concept | Trot, wake, sleep, greeting behavior, and stories |
 
 The next resident should follow the owner's genuine preference, not whichever
 prototype is cheapest to finish.
 
+### Species-specific behavior anchors
+
+- **Kangaroo:** long and short hop cadences, tail-balanced inspection, alert ear
+  turns, a low curled sleep, and a signature startled backward hop.
+- **Monkey:** low quadrupedal travel, tail-led turns, careful object handling,
+  grooming at home, and a signature upside-down clock peek.
+- **Dog:** relaxed trot, scent-following pauses, ears reacting before the body,
+  curled and sprawled sleep variants, and a restrained greeting stretch.
+
+These anchors are intentionally different from Pebble's waddle, belly slide, and
+pebble-collecting identity.

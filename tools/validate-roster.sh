@@ -25,5 +25,15 @@ while IFS=$'\t' read -r id directory; do
   done
 done < <(jq -r '.residents[] | select(.status == "ready") | [.id, .assetDirectory] | @tsv' "$catalog")
 
-echo "Roster validation passed: every selectable resident meets the animation contract."
+while IFS=$'\t' read -r id asset; do
+  [[ -n "$asset" && -f "$root_dir/$asset" ]] || {
+    echo "FAIL: concept companion $id has no concept asset" >&2
+    exit 1
+  }
+  [[ "$(identify -format '%wx%h' "$root_dir/$asset")" == "56x34" ]] || {
+    echo "FAIL: concept companion $id must use the 56x34 audition canvas" >&2
+    exit 1
+  }
+done < <(jq -r '.residents[] | select(.status == "concept") | [.id, .asset] | @tsv' "$catalog")
 
+echo "Roster validation passed: every selectable resident meets the animation contract."
