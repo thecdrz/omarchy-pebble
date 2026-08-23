@@ -12,7 +12,7 @@ not a requirement that everyone prefer a penguin.
 - Defaults to a fully animated Linux-inspired penguin with a genuinely tucked four-frame sleep loop and six-frame waddle
 - Adds authored start, stop, turn, settle, tucked-sleep, idle-personality, and belly-slide sequences
 - Uses a small personality director: sleepy autonomous outings, curious invited outings, and playful repeated-poke reactions
-- Prevents directed adventures from repeating back-to-back and applies per-episode cooldowns
+- Avoids showing the same special adventure repeatedly, keeping sessions varied
 - Remembers the eight most recent episode types and avoids the last three when choosing what happens next
 - Develops from new neighbor to familiar friend to trusted companion through time and shared outings
 - Develops a favorite kind of collected object and uses it during quiet nest-tidying routines
@@ -22,7 +22,7 @@ not a requirement that everyone prefer a penguin.
 - Reserves stargazing and star dreams for the evening while varying dreams and nest-tidying at home
 - Wakes briefly to look around or preen while resting, with the sleep marker reserved for intermittent deep sleep
 - Starts Normal outings every 30–75 seconds and lets some journeys linger for a second or third activity
-- Gives rare stories their own six-to-twenty-minute cooldowns so the full repertoire unfolds gradually
+- Lets memorable moments return naturally after a while instead of appearing over and over
 - Makes Quiet, Normal, and Lively distinct in frequency, playfulness, and spontaneous antics
 - Remembers rapid pokes without interrupting stand-up or stopping transitions
 - Avoids repeating the same idle pose and varies the number and tempo of personality beats
