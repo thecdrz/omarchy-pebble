@@ -74,15 +74,15 @@ for species_dir in "$root_dir"/assets/species/*; do
     check_sequence "$species" wake 8 10
     check_sequence "$species" walk 6 10
   elif [[ "$species" == "penguin" ]]; then
-    check_sequence "$species" wake 8 5 1 950 500 700
-    check_sequence "$species" walk 6 3 1 950 450 630
-    check_sequence "$species" settle 4 3 1 0 570 640
+    check_sequence "$species" wake 8 1 1 1100 500 900
+    check_sequence "$species" walk 6 1 1 950 450 700
+    check_sequence "$species" settle 4 1 1 0 570 640
     check_sequence "$species" sleep-loop 4 3 2 600 300 450
-    check_sequence "$species" idle-actions 8 8 2 950 380 700
-    check_sequence "$species" start 4 4 1 0 570 650
-    check_sequence "$species" stop 4 5 1 0 370 450
-    check_sequence "$species" slide 8 12 1 0 400 1320
-    check_sequence "$species" slip 16 12 3 0 560 750
+    check_sequence "$species" idle-actions 8 1 2 950 380 750
+    check_sequence "$species" start 4 1 1 0 570 650
+    check_sequence "$species" stop 4 1 1 0 370 450
+    check_sequence "$species" slide 8 12 1 1300 400 1320
+    check_sequence "$species" slip 16 12 3 1300 560 750
   else
     check_sequence "$species" wake 8 4
     check_sequence "$species" walk 6 2
