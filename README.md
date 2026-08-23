@@ -11,7 +11,7 @@ curious, slightly clumsy, calm when ignored, and entirely local.
 - Wanders the full horizontal bar, including behind the center clock widgets.
 - Sleeps, stretches, preens, slips, belly-slides, and occasionally gets curious.
 - Finds leaves, pebbles, and stars, then carries them home to remember.
-- Builds a small local history of moments without repeating the same behavior constantly.
+- Remembers recent special activities locally so it can vary what happens next.
 - Responds to clicks, right-click journal controls, and a one-hour snooze.
 - Offers Quiet, Normal, Lively, and Reduced Motion modes.
 - Adapts to the active monitor and pauses safely when the bar is hidden.
@@ -19,12 +19,12 @@ curious, slightly clumsy, calm when ignored, and entirely local.
 
 ## Interaction
 
-- When Pebble is resting, left-click his small resting spot to wake him.
-- When Pebble is walking on the bar, left-click his body for a small hop and head tilt.
-- Poke again during or shortly after wake-up to queue a playful belly slide without interrupting the transition.
-- Right-click Pebble or his resting spot to open the local journal.
-- Middle-click to send Pebble home.
-- Use **Snooze 1h** in the journal to pause autonomous outings; direct interaction wakes Pebble early.
+- When Pebble is sleeping, left-click him to wake him.
+- While Pebble is awake, left-click him for a small hop and head tilt.
+- Poke him again shortly after waking to queue a belly slide when Reduced Motion is off.
+- Right-click Pebble—sleeping or awake—to open the local journal.
+- Middle-click Pebble to send him home.
+- Use **Snooze 1h** in the journal to pause autonomous outings; left-click Pebble to wake him early.
 - Use **Motion · Reduced** to suppress dramatic autonomous antics and continuous breathing animation.
 
 ## See Pebble in motion
