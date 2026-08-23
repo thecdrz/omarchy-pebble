@@ -5,7 +5,7 @@
   "version": "0.22.0",
   "author": "thecdrz",
   "license": "MIT",
-  "description": "A quiet, expressive penguin companion who inhabits your Omarchy bar.",
+  "description": "A quiet, expressive penguin who inhabits your Omarchy bar.",
   "kinds": ["panel"],
   "keepLoaded": true,
   "entryPoints": {

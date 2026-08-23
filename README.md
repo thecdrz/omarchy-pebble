@@ -1,10 +1,10 @@
 # Pebble
 
-A quiet, expressive penguin companion who inhabits the Omarchy bar.
+A quiet, expressive penguin who inhabits the Omarchy bar.
 
-Pebble is designed to feel like a tiny animal sharing the bar rather than a
-widget displaying one: curious, slightly clumsy, calm when ignored, and entirely
-local.
+Pebble is the only companion currently shipped by this plugin. He is designed
+to feel like a tiny animal sharing the bar rather than a widget displaying one:
+curious, slightly clumsy, calm when ignored, and entirely local.
 
 ## What Pebble does
 
@@ -23,7 +23,7 @@ local.
 - When Pebble is walking on the bar, left-click his body for a small hop and head tilt.
 - Poke again during or shortly after wake-up to queue a playful belly slide without interrupting the transition.
 - Right-click Pebble or his resting spot to open the local journal.
-- Middle-click to send the companion home.
+- Middle-click to send Pebble home.
 - Use **Snooze 1h** in the journal to pause autonomous outings; direct interaction wakes Pebble early.
 - Use **Motion · Reduced** to suppress dramatic autonomous antics and continuous breathing animation.
 
@@ -51,6 +51,9 @@ tools/render-animation-reels.sh /tmp/pebble-animation-reels
 
 Journal state is stored at
 `~/.local/state/omarchy/pebble/state.json`. It never leaves the machine.
+
+The journal shows Pebble's current status, latest moment, collected objects,
+outing totals, activity level, motion setting, and snooze control.
 
 On a new installation, Pebble's first journal note explains that it explores the
 entire bar, rests near the center widgets, and remembers discoveries. There is no
