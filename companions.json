@@ -42,27 +42,6 @@
       "status": "lab",
       "assetDirectory": "assets/species/gecko",
       "temperament": "subtle, warm, and observant"
-    },
-    {
-      "id": "kangaroo",
-      "name": "",
-      "status": "concept",
-      "asset": "assets/concepts/kangaroo.png",
-      "temperament": "steady, energetic, and gently bold"
-    },
-    {
-      "id": "monkey",
-      "name": "",
-      "status": "concept",
-      "asset": "assets/concepts/monkey.png",
-      "temperament": "clever, social, and playfully inquisitive"
-    },
-    {
-      "id": "dog",
-      "name": "",
-      "status": "concept",
-      "asset": "assets/concepts/dog.png",
-      "temperament": "loyal, friendly, and happily attentive"
     }
   ]
 }

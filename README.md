@@ -58,7 +58,6 @@ not a requirement that everyone prefer a penguin.
 - Is click-through everywhere except its body or den
 - Uses preloaded natural-color poses with a light live theme tint
 - Exposes `pet`, `roam`, and `sleep` shell actions
-- Exposes temporary `audition` previews for the kangaroo, monkey, and dog concepts
 - Does not monitor global keyboard or pointer input
 - Makes no runtime network requests and stores only bounded local companion state
 - Opens only a compact, user-requested journal and never covers application windows during ordinary behavior
@@ -72,6 +71,28 @@ not a requirement that everyone prefer a penguin.
 - Middle-click to send the companion home.
 - Use **Snooze 1h** in the journal to pause autonomous outings; direct interaction wakes Pebble early.
 - Use **Motion · Reduced** to suppress dramatic autonomous antics and continuous breathing animation.
+
+## See Pebble in motion
+
+These demos are rendered from the same runtime-ordered frames shipped in the
+plugin. They are intentionally enlarged so the transitions and silhouette are
+easy to inspect on GitHub.
+
+| Waddle and return | Tucked sleep |
+|---|---|
+| ![Pebble locomotion](docs/media/pebble-locomotion.gif) | ![Pebble sleeping](docs/media/pebble-sleep.gif) |
+
+| Belly slide | Slip and recover |
+|---|---|
+| ![Pebble belly slide](docs/media/pebble-belly-slide.gif) | ![Pebble slip and recover](docs/media/pebble-slip.gif) |
+
+The complete frame sheet is available at
+[`docs/media/pebble-animation-sheet.png`](docs/media/pebble-animation-sheet.png).
+Regenerate the review reels with:
+
+```sh
+tools/render-animation-reels.sh /tmp/pebble-animation-reels
+```
 
 Journal state is stored at
 `~/.local/state/omarchy/pebble/state.json`. It never leaves the machine.
@@ -161,14 +182,7 @@ omarchy-shell io.github.thecdrz.pebble discover
 omarchy-shell io.github.thecdrz.pebble journal
 omarchy-shell io.github.thecdrz.pebble motion reduced
 omarchy-shell io.github.thecdrz.pebble motion full
-omarchy-shell io.github.thecdrz.pebble audition kangaroo
-omarchy-shell io.github.thecdrz.pebble audition monkey
-omarchy-shell io.github.thecdrz.pebble audition dog
-omarchy-shell io.github.thecdrz.pebble audition off
 ```
-
-Auditions are preview-only: they do not change Pebble's saved identity, journal,
-stats, or relationship state. Use `audition off` to return to Pebble.
 
 ## Remove
 
