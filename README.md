@@ -19,10 +19,10 @@ local.
 
 ## Interaction
 
-- Left-click the den to rustle it and invite the companion out.
-- Left-click once while outside for a small hop and head tilt.
+- When Pebble is resting, left-click his small resting spot to wake him.
+- When Pebble is walking on the bar, left-click his body for a small hop and head tilt.
 - Poke again during or shortly after wake-up to queue a playful belly slide without interrupting the transition.
-- Right-click the den or companion to open the local journal.
+- Right-click Pebble or his resting spot to open the local journal.
 - Middle-click to send the companion home.
 - Use **Snooze 1h** in the journal to pause autonomous outings; direct interaction wakes Pebble early.
 - Use **Motion · Reduced** to suppress dramatic autonomous antics and continuous breathing animation.
