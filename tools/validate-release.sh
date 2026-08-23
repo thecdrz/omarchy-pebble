@@ -25,6 +25,9 @@ done
 rg -q 'version: 9' Companion.qml
 rg -q 'reducedMotion' Companion.qml
 rg -q 'recentEpisodes' Companion.qml
+rg -q 'stateMaxBytes: 65536' Companion.qml
+rg -q 'iflag=nofollow,nonblock' Companion.qml
+rg -q 'timeout --foreground 1s dd' Companion.qml
 rg -q 'omarchy plugin remove io.github.thecdrz.pebble' README.md
 
 echo "Release validation passed: manifest, assets, state contract, docs, and plugin structure."

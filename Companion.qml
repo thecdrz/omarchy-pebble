@@ -25,6 +25,7 @@ Item {
     : conceptId === "frog" ? "Tree frog" : conceptId === "nova" ? "Nova" : "Cat"
   readonly property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy/pebble"
   readonly property string statePath: stateDir + "/state.json"
+  readonly property int stateMaxBytes: 65536
   readonly property var bar: shell ? shell.bar : null
   readonly property int barSize: bar && bar.barSize ? bar.barSize : 30
   readonly property string barPosition: bar ? String(bar.position) : "top"
@@ -1038,7 +1039,28 @@ Item {
   Process {
     command: ["mkdir", "-p", root.stateDir]
     running: true
-    onExited: { root.stateDirReady = true; stateFile.reload() }
+    onExited: {
+      root.stateDirReady = true
+      stateReadProc.running = true
+    }
+  }
+  Process {
+    id: stateReadProc
+    command: ["bash", "-c",
+      "set -eu\n"
+      + "path=\"$1\"\n"
+      + "[ -f \"$path\" ] && [ ! -L \"$path\" ]\n"
+      + "[ \"$(stat -c '%F' -- \"$path\")\" = \"regular file\" ]\n"
+      + "size=$(stat -c '%s' -- \"$path\")\n"
+      + "[ \"$size\" -le 65536 ]\n"
+      + "timeout --foreground 1s dd if=\"$path\" iflag=nofollow,nonblock bs=1 count=65536 status=none",
+      "pebble-state-read", root.statePath]
+    stdout: StdioCollector { id: stateReadStdout; waitForEnd: true }
+    onExited: function(exitCode) {
+      var raw = String(stateReadStdout.text || "")
+      if (exitCode !== 0 || raw.length > root.stateMaxBytes) root.loadState("{}")
+      else root.loadState(raw)
+    }
   }
   FileView {
     id: stateFile
@@ -1046,8 +1068,8 @@ Item {
     watchChanges: false
     atomicWrites: true
     printErrors: false
-    onLoaded: root.loadState(text())
-    onLoadFailed: root.loadState("{}")
+    // Read access is intentionally handled by stateReadProc above. FileView is
+    // retained only for atomic writes after the bounded, no-follow load passes.
   }
 
   Timer {
