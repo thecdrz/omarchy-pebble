@@ -1639,7 +1639,7 @@ Item {
         Rectangle { anchors.fill: parent; anchors.margins: 1; radius: 4; color: Color.bar.text; opacity: 0.12 }
         Rectangle { x: 0; y: 0; width: 3; height: parent.height; radius: 2; color: Color.accent }
         Text {
-          x: 11; y: 5; text: "LAST ADVENTURE"
+          x: 11; y: 5; text: "LATEST MOMENT"
           color: Color.accent; font.pixelSize: 8; font.bold: true
         }
         Text {

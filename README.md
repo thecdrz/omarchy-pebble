@@ -37,9 +37,9 @@ not a requirement that everyone prefer a penguin.
 - Keeps the side-walking cycle active during clock approaches instead of substituting a forward-facing transition pose
 - Turns discoveries into visible approach, inspection, pickup, carry-home, and storage stories
 - Treats a third rapid poke as an annoyed retreat and suspicious clock-side peek
-- Gives Pebble a compact local journal with a clear current state, last adventure, memories, and direct controls
+- Gives Pebble a compact local journal with a clear current state, latest moment, memories, and direct controls
 - Keeps the journal glanceable by showing only outings, clock passages, and pokes as lifetime totals
-- Protects significant discoveries in Last Adventure from being immediately replaced by minor antics
+- Protects significant discoveries in Latest Moment from being immediately replaced by minor antics
 - Follows the focused monitor and filters live bar landmarks to that screen
 - Pauses safely while the bar is hidden and resumes from home when it returns
 - Supports top and bottom bars; stays dormant on vertical bars instead of opening an incorrect surface
