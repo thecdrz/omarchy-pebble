@@ -26,6 +26,8 @@ Item {
   readonly property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy/pebble"
   readonly property string statePath: stateDir + "/state.json"
   readonly property int stateMaxBytes: 65536
+  property string pendingStatePayload: ""
+  property string activeStatePayload: ""
   readonly property var bar: shell ? shell.bar : null
   readonly property int barSize: bar && bar.barSize ? bar.barSize : 30
   readonly property string barPosition: bar ? String(bar.position) : "top"
@@ -943,7 +945,7 @@ Item {
   }
   function saveState() {
     if (!stateReady || !stateDirReady) return
-    stateFile.setText(JSON.stringify({
+    var payload = JSON.stringify({
       version: 9, species: speciesId, concept: conceptId, outings: outings, pokes: totalPokes,
       distance: distanceWalked, leaves: leavesFound, pebbles: pebblesFound,
       stars: starsFound, slides: slidesCompleted, slips: slipsCompleted,
@@ -953,7 +955,35 @@ Item {
       recentEpisodes: recentEpisodes, episodeCounts: episodeCounts, repeatAvoided: repeatAvoided,
       activity: activityLevel, reducedMotion: reducedMotion, introSeen: introSeen,
       firstMetAt: firstMetAt, lastSeenDay: lastSeenDay, daysTogether: daysTogether, snoozeUntil: snoozeUntil
-    }, null, 2) + "\n")
+    }, null, 2) + "\n"
+    if (payload.length > stateMaxBytes) {
+      console.warn("pebble: refused oversized local state")
+      return
+    }
+    pendingStatePayload = payload
+    stateWriteTimer.restart()
+  }
+  function flushStateWrite() {
+    if (!stateReady || !stateDirReady || pendingStatePayload === "") return
+    if (stateWriteProc.running) { stateWriteTimer.restart(); return }
+    activeStatePayload = pendingStatePayload
+    pendingStatePayload = ""
+    stateWriteProc.command = ["bash", "-c",
+      "set -eu\n"
+      + "path=\"$1\"\n"
+      + "payload=\"$2\"\n"
+      + "bytes=$(printf '%s' \"$payload\" | wc -c)\n"
+      + "[ \"$bytes\" -le 65536 ]\n"
+      + "dir=${path%/*}\n"
+      + "if [ -e \"$path\" ] || [ -L \"$path\" ]; then [ -f \"$path\" ] && [ ! -L \"$path\" ]; fi\n"
+      + "tmp=$(mktemp --tmpdir=\"$dir\" .pebble-state.XXXXXX)\n"
+      + "trap 'rm -f -- \"$tmp\"' EXIT HUP INT TERM\n"
+      + "printf '%s' \"$payload\" > \"$tmp\"\n"
+      + "chmod 600 \"$tmp\"\n"
+      + "mv -fT -- \"$tmp\" \"$path\"\n"
+      + "trap - EXIT",
+      "pebble-state-write", statePath, activeStatePayload]
+    stateWriteProc.running = true
   }
   function cycleActivity() { activityLevel = (activityLevel + 1) % 3; saveState(); scheduleRoam() }
   function acknowledgeIntro() { if (!introSeen) { introSeen = true; saveState() } }
@@ -1062,14 +1092,21 @@ Item {
       else root.loadState(raw)
     }
   }
-  FileView {
-    id: stateFile
-    path: root.stateDirReady ? root.statePath : ""
-    watchChanges: false
-    atomicWrites: true
-    printErrors: false
-    // Read access is intentionally handled by stateReadProc above. FileView is
-    // retained only for atomic writes after the bounded, no-follow load passes.
+  Timer {
+    id: stateWriteTimer
+    interval: 80
+    repeat: false
+    onTriggered: root.flushStateWrite()
+  }
+  Process {
+    id: stateWriteProc
+    running: false
+    command: []
+    onExited: function(exitCode) {
+      root.activeStatePayload = ""
+      if (exitCode !== 0) console.warn("pebble: atomic state write failed")
+      if (root.pendingStatePayload !== "") stateWriteTimer.restart()
+    }
   }
 
   Timer {
