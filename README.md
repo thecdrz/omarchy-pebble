@@ -58,6 +58,7 @@ not a requirement that everyone prefer a penguin.
 - Is click-through everywhere except its body or den
 - Uses preloaded natural-color poses with a light live theme tint
 - Exposes `pet`, `roam`, and `sleep` shell actions
+- Exposes temporary `audition` previews for the kangaroo, monkey, and dog concepts
 - Does not monitor global keyboard or pointer input
 - Makes no runtime network requests and stores only bounded local companion state
 - Opens only a compact, user-requested journal and never covers application windows during ordinary behavior
@@ -160,7 +161,14 @@ omarchy-shell io.github.thecdrz.pebble discover
 omarchy-shell io.github.thecdrz.pebble journal
 omarchy-shell io.github.thecdrz.pebble motion reduced
 omarchy-shell io.github.thecdrz.pebble motion full
+omarchy-shell io.github.thecdrz.pebble audition kangaroo
+omarchy-shell io.github.thecdrz.pebble audition monkey
+omarchy-shell io.github.thecdrz.pebble audition dog
+omarchy-shell io.github.thecdrz.pebble audition off
 ```
+
+Auditions are preview-only: they do not change Pebble's saved identity, journal,
+stats, or relationship state. Use `audition off` to return to Pebble.
 
 ## Remove
 

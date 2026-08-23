@@ -80,3 +80,12 @@ prototype is cheapest to finish.
 
 These anchors are intentionally different from Pebble's waddle, belly slide, and
 pebble-collecting identity.
+
+## Temporary concept auditions
+
+The development build exposes `omarchy-shell io.github.thecdrz.pebble audition
+<id>` for previewing concept silhouettes. Auditions are deliberately ephemeral:
+they do not alter Pebble's saved resident, journal, stats, or relationship. Use
+`audition off` (or `audition penguin`) to return to Pebble. A concept only becomes
+a selectable resident after it passes the same behavior, readability, and
+long-session quality gate as the penguin.

@@ -22,7 +22,9 @@ Item {
   property string conceptId: ""
   readonly property bool auditioning: conceptId !== ""
   readonly property string conceptName: conceptId === "bird" ? "Songbird"
-    : conceptId === "frog" ? "Tree frog" : conceptId === "nova" ? "Nova" : "Cat"
+    : conceptId === "frog" ? "Tree frog" : conceptId === "nova" ? "Nova"
+    : conceptId === "kangaroo" ? "Kangaroo" : conceptId === "monkey" ? "Monkey"
+    : conceptId === "dog" ? "Dog" : "Cat"
   readonly property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy/pebble"
   readonly property string statePath: stateDir + "/state.json"
   readonly property var bar: shell ? shell.bar : null
@@ -993,6 +995,21 @@ Item {
     saveState()
     scheduleRoam()
   }
+  function auditionConcept(id) {
+    var wanted = String(id || "").toLowerCase()
+    if (["cat", "bird", "frog", "nova", "kangaroo", "monkey", "dog"].indexOf(wanted) < 0) return
+    goToSleep()
+    conceptId = wanted
+    conceptX = homeX
+    scheduleConceptIdle()
+  }
+  function stopAudition() {
+    if (!auditioning) return
+    conceptTravel.stop(); conceptIdleTimer.stop()
+    conceptId = ""
+    goToSleep()
+    scheduleRoam()
+  }
   function handlePetClick(button) {
     acknowledgeIntro()
     if (button === Qt.RightButton) panelOpen = !panelOpen
@@ -1328,7 +1345,8 @@ Item {
       loops: root.conceptHopCount
       NumberAnimation {
         target: conceptPet; property: "hopOffset"
-        to: root.conceptId === "frog" ? -5 : root.conceptId === "bird" ? -3.5 : -2.5
+        to: root.conceptId === "frog" ? -5 : root.conceptId === "bird" ? -3.5
+          : root.conceptId === "kangaroo" ? -5.5 : root.conceptId === "dog" ? -2 : -2.5
         duration: 145; easing.type: Easing.OutQuad
       }
       NumberAnimation { target: conceptPet; property: "hopOffset"; to: 0; duration: 205; easing.type: Easing.InQuad }
@@ -1389,6 +1407,11 @@ Item {
       root.saveState(); root.scheduleRoam()
     }
     function journal(): void { root.panelOpen = !root.panelOpen }
+    function audition(name: string): void {
+      var wanted = String(name || "").toLowerCase()
+      if (wanted === "" || wanted === "off" || wanted === "stop" || wanted === "penguin") root.stopAudition()
+      else root.auditionConcept(wanted)
+    }
   }
 
   PanelWindow {
