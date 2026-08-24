@@ -7,15 +7,19 @@ All notable changes to Pebble are documented here.
 ### Added
 
 - Hover presence: hand cursor and light stir / look reactions on Pebble (no on-bar tip text).
-- **Curious cursor** on by default: bar-local pointer awareness so Pebble can look, scoot, chase, or flee along the bar; sleeping Pebble can wake and walk toward a nearby pointer.
+- **Curious cursor** on by default: bar-local pointer awareness. Quiet looks only; Normal mild scoots; Lively may nest-wake, chase, or flee.
 - Single flat **PEBBLE** panel (story + Explore/home, snooze, Quiet/Normal/Lively, Curious, Calm motion) instead of a Journal → Care drill-down; popup sizes from content and anchors to the active sprite.
 - Interactive finds: pebbles, leaves, and stars roll/bounce with velocity, edge rebound, grab fumbles, and occasional clock escapes that become chase episodes.
 - Clock as a stage: shy / bold peeks, toy-chase behind the clock, and rare tumble-out slips.
 - Lively-only circus stunts: **flame gate**, **parade leaf**, **sumo pebble**, **cannon**, **rain umbrella**, **fishing**, **sneeze**, and **zoomies** — see [`docs/ROADMAP.md`](docs/ROADMAP.md). Tightrope removed.
-- **Dev triggers** panel section to fire animations on demand (stays open between taps).
+- **Dev triggers** for animation review via IPC (`preview` / `dev`) and optional `PEBBLE_DEV=1` panel section (hidden from the default PEBBLE UI).
 - Fixed-contrast spectacle props (bar-lane cannon tube, flame gate, toy pebble) for dark and light bars.
 - Authored bar-lane prop sprite pipeline: `tools/render-props.py` → `assets/props/*.png` → `PropArt.qml`.
 - Deeper home moments weighted by bond and collection size, with occasional memory notes.
+- Nest treasures: favorite pebble/leaf/star sits beside the sleeping nest; Quiet gets richer nest life (more z’s, dusk-from-nest, leaf sleep-cap).
+- **Dusk watch** (17:00–19:00): a signature linger looking at the bar go gold (Normal+). Quiet watches from the nest.
+- **Show-and-tell**: Normal+ outing that presents a collected find.
+- Energy contract line in the PEBBLE panel: Quiet sleeps · Normal wanders · Lively shows off.
 - IPC helpers for `care`, `activity`, and `curious`.
 - Bar-local cursor helper `bin/pebble-cursor` and real-bar marketplace screenshots under `docs/media/discord/`.
 
@@ -28,6 +32,7 @@ All notable changes to Pebble are documented here.
 - Sleeping silhouette reads larger/brighter on dark bars; mid belly-slide frames no longer balloon.
 - Curious chase now follows Energy: Quiet looks only, Normal mild scoots, Lively nest-wake and chase. Defaults remain Normal + Curious on + Full motion.
 - Go home / middle-click walk home when out instead of teleporting into the nest.
+- Quiet nest life favors dreams and nest-rustle over stand-up idle beats; switching to Quiet sends him home.
 - Removed tiny poke telegraph tips beside the sprite.
 
 ### Added (prior)

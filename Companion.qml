@@ -152,6 +152,8 @@ Item {
   property bool stateReady: false
   property bool panelOpen: false
   property bool devPanelOpen: false
+  // Shipped builds hide dev chips; set PEBBLE_DEV=1 for the panel section, or use IPC preview/dev.
+  readonly property bool devToolsEnabled: Quickshell.env("PEBBLE_DEV") === "1"
   readonly property var devTriggers: [
     { id: "slip", label: "Slip" },
     { id: "slide", label: "Slide" },
@@ -161,12 +163,14 @@ Item {
     { id: "discover", label: "Toy drop" },
     { id: "fire-hoop", label: "Flame gate" },
     { id: "cannon", label: "Cannon" },
-        { id: "parade-leaf", label: "Parade" },
+    { id: "parade-leaf", label: "Parade" },
     { id: "sumo-pebble", label: "Sumo" },
     { id: "rain-umbrella", label: "Umbrella" },
     { id: "fishing", label: "Fish" },
     { id: "sneeze", label: "Sneeze" },
     { id: "zoomies", label: "Zoomies" },
+    { id: "dusk-watch", label: "Dusk" },
+    { id: "show-and-tell", label: "Treasure" },
     { id: "firefly", label: "Firefly" },
     { id: "stretch", label: "Stretch" },
     { id: "edge-watch", label: "Edge" },
@@ -234,6 +238,8 @@ Item {
   readonly property var journalAnchor: auditioning ? conceptPet : sleeping ? den : animal
   readonly property string favoriteItem: pebblesFound >= leavesFound && pebblesFound >= starsFound && pebblesFound > 0 ? "pebbles"
     : leavesFound >= starsFound && leavesFound > 0 ? "leaves" : starsFound > 0 ? "stars" : "quiet corners"
+  readonly property string favoritePropKind: favoriteItem === "pebbles" ? "pebble"
+    : favoriteItem === "leaves" ? "leaf" : favoriteItem === "stars" ? "star" : ""
   readonly property string bondName: daysTogether >= 14 || outings >= 100 ? "Trusted companion"
     : daysTogether >= 4 || outings >= 25 ? "Familiar friend" : "New neighbor"
   readonly property int focusedWorkspaceId: Hyprland.focusedWorkspace ? Number(Hyprland.focusedWorkspace.id) : -1
@@ -314,6 +320,7 @@ Item {
   readonly property real homeX: Math.min(worldMaxX, Math.max(worldMinX, passageRightX + 96))
   readonly property real doorwayX: Math.min(worldMaxX, homeX + 34)
   readonly property string statusText: snoozed ? "Snoozing for one hour — Wake now or click him"
+    : sleeping && activityLevel === 0 ? "Nesting quietly — click to wake, or Explore"
     : sleeping ? "Resting on the bar — click to wake, or Explore"
     : carriedItem !== "" ? "Carrying a " + carriedItem + " home"
     : episodeName === "clock-retreat" ? "Hiding behind the clock"
@@ -337,6 +344,8 @@ Item {
     : episodeName === "parade-leaf" ? "Marching with a leaf hat and tiny flag"
     : episodeName === "sumo-pebble" ? "Preparing to shoulder-check a pebble"
     : episodeName === "cannon" ? "Circus cannon — ball first, then penguin"
+    : episodeName === "dusk-watch" ? "Watching the bar go gold"
+    : episodeName === "show-and-tell" ? "Showing off a favorite find"
     : episodeName === "rain-umbrella" ? "Waiting out imaginary rain"
     : episodeName === "fishing" ? "Fishing a puddle on the bar"
     : episodeName === "sneeze" ? "Fighting a historic sneeze"
@@ -489,15 +498,19 @@ Item {
     return roll < 0.24 ? "leaf" : roll < 0.86 ? "pebble" : "star"
   }
   function currentHour() { return new Date().getHours() }
+  function isDusk() { var hour = currentHour(); return hour >= 17 && hour <= 19 }
+  function isNight() { var hour = currentHour(); return hour >= 20 || hour < 6 }
   function collectionSize() { return leavesFound + pebblesFound + starsFound }
   function isStory(name) {
-    return ["edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen", "fire-hoop", "parade-leaf", "sumo-pebble", "cannon", "rain-umbrella", "fishing", "sneeze", "zoomies"].indexOf(name) >= 0
+    return ["edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen", "fire-hoop", "parade-leaf", "sumo-pebble", "cannon", "rain-umbrella", "fishing", "sneeze", "zoomies", "dusk-watch", "show-and-tell"].indexOf(name) >= 0
   }
   function storyEligible(name) {
     if (name === "polish" || name === "lost-pebble") return pebblesFound > 0
     if (name === "leaf-toss") return leavesFound > 0
     if (name === "collection-sort") return collectionSize() >= 3
-    if (name === "stargaze") return currentHour() >= 19 || currentHour() < 6
+    if (name === "stargaze") return isNight() || currentHour() >= 19
+    if (name === "dusk-watch") return activityLevel >= 1 && isDusk()
+    if (name === "show-and-tell") return activityLevel >= 1 && collectionSize() >= 1
     // Circus stunts stay Lively-only and never fight Reduced Motion.
     if (name === "fire-hoop") return activityLevel === 2 && !reducedMotion
     if (name === "parade-leaf") return activityLevel === 2 && !reducedMotion && leavesFound > 0
@@ -519,7 +532,9 @@ Item {
       : name === "parade-leaf" || name === "sumo-pebble" ? 480000
       : name === "cannon" ? 300000
       : name === "rain-umbrella" || name === "fishing" ? 420000
-      : name === "sneeze" || name === "zoomies" ? 240000 : 180000
+      : name === "sneeze" || name === "zoomies" ? 240000
+      : name === "dusk-watch" ? 900000
+      : name === "show-and-tell" ? 540000 : 180000
     return activityLevel === 2 ? Math.round(base * 0.62) : base
   }
   function episodeReady(name) {
@@ -567,10 +582,14 @@ Item {
       add("fire-hoop", 2); add("parade-leaf", 2); add("sumo-pebble", 2)
       add("cannon", 4)
       add("rain-umbrella", 2); add("fishing", 2); add("sneeze", 3); add("zoomies", 3)
+      if (isDusk()) add("dusk-watch", 3)
+      add("show-and-tell", 2)
     } else {
       add("discovery", 3); add("clock", 2); add("slide", interactive ? 2 : 1); add("slip", 1)
       add("edge-watch", 2); add("firefly", 2); add("stretch", 2); add("listen", 1)
       add("polish", 1); add("leaf-toss", 1); add("stargaze", 2); add("collection-sort", 1); add("lost-pebble", 1)
+      if (isDusk()) add("dusk-watch", 4)
+      add("show-and-tell", 2)
     }
     if (pool.length === 0) {
       var fallbacks = ["discovery", "clock", "slide", "slip"]
@@ -610,6 +629,9 @@ Item {
       queueEpisode(choice)
       personalityMood = "curious"; journeyPhase = "outbound"
       if (!walking) planRoute()
+    } else if (isStory(choice)) {
+      queueEpisode(choice)
+      if (!walking) planRoute()
     } else if (!walking) planRoute()
   }
   function scheduleRoam() {
@@ -641,16 +663,19 @@ Item {
   }
   function schedulePeek() {
     if (barHidden || !horizontalBar || snoozed) { peekTimer.stop(); return }
-    peekTimer.interval = 8000 + Math.floor(Math.random() * 10000)
+    var base = activityLevel === 0 ? 4200 : activityLevel === 2 ? 11000 : 8000
+    var spread = activityLevel === 0 ? 5200 : activityLevel === 2 ? 12000 : 10000
+    peekTimer.interval = base + Math.floor(Math.random() * spread)
     peekTimer.restart()
   }
   function scheduleSleepMarker() {
     if (!sleeping || barHidden || !horizontalBar || homeStoryName !== "") {
       sleepMarkerTimer.stop(); deepSleeping = false; return
     }
+    var quiet = activityLevel === 0
     sleepMarkerTimer.interval = deepSleeping
-      ? 2200 + Math.floor(Math.random() * 1800)
-      : 7000 + Math.floor(Math.random() * 9000)
+      ? (quiet ? 1600 : 2200) + Math.floor(Math.random() * (quiet ? 1400 : 1800))
+      : (quiet ? 3200 : 7000) + Math.floor(Math.random() * (quiet ? 3800 : 9000))
     sleepMarkerTimer.restart()
   }
   function advanceSleepMarker() { deepSleeping = !deepSleeping; scheduleSleepMarker() }
@@ -706,7 +731,7 @@ Item {
     } else if (storyQueued === "fishing") {
       // Puddle-fish mid-lane — never over the clock cluster.
       finalX = stageOpenLaneClear(0.42)
-    } else if (["fire-hoop", "parade-leaf", "sumo-pebble", "rain-umbrella", "sneeze", "zoomies"].indexOf(storyQueued) >= 0) {
+    } else if (["fire-hoop", "parade-leaf", "sumo-pebble", "rain-umbrella", "sneeze", "zoomies", "dusk-watch", "show-and-tell"].indexOf(storyQueued) >= 0) {
       finalX = stageOpenLaneClear()
     } else {
       finalX = chooseDestination()
@@ -1132,6 +1157,7 @@ Item {
   }
   function startReturn() {
     journeyPhase = "returning"; pauseOnRoute = false
+    if (activityLevel === 0) personalityMood = "sleepy"
     // Den renders at homeX — returning to doorwayX made sleep look like a teleport jump.
     if (isPenguin) { pendingDestination = homeX; poseFrame = 0; action = "starting"; poseTimer.interval = 110; poseTimer.restart() }
     else startLeg(homeX)
@@ -1220,7 +1246,9 @@ Item {
       "rain-umbrella": "Sheltered under a leaf. The rain was mostly theoretical.",
       "fishing": "Fished a bar-lane puddle. Catch and release. Mostly release.",
       "sneeze": "Sneezed hard enough to relocate himself.",
-      "zoomies": "Completed three unauthorized laps. No notes."
+      "zoomies": "Completed three unauthorized laps. No notes.",
+      "dusk-watch": "Watched the bar go gold. Did not clock out.",
+      "show-and-tell": "Presented a favorite find. Audience: the bar."
     }
     if (notes[storyName]) rememberEvent(notes[storyName], storyName === "stargaze" ? 2 : 1)
     resetStoryVisuals(); storyName = ""; episodeName = ""; saveState()
@@ -1675,6 +1703,75 @@ Item {
         if (!hoopSuccess) finishStoryIntoSlip()
         else { commitStoryTravel(); storyDelay(360) }
       } else finishStory()
+    } else if (storyName === "dusk-watch") {
+      if (stage === 0) {
+        petX = stageOpenLaneClear(0.58)
+        direction = -1
+        idleFrame = 1
+        clearHeadProp()
+        setStoryProp("star", petX - 12, Math.round(habitat.height * 0.20), 0.55, 0.88)
+        animal.sniffRotation = -5
+        animal.hopOffset = 0
+        storyDelay(720)
+      } else if (stage === 1) {
+        idleFrame = 7
+        storyPropOpacity = 1
+        storyPropScale = 1.2
+        animal.sniffRotation = -8
+        storyDelay(1500)
+      } else if (stage === 2) {
+        idleFrame = 0
+        storyPropOpacity = 0.72
+        animal.hopOffset = -1
+        storyDelay(1100)
+      } else if (stage === 3) {
+        idleFrame = 7
+        storyPropScale = 0.92
+        animal.hopOffset = 0
+        animal.sniffRotation = -3
+        storyDelay(900)
+      } else if (stage === 4) {
+        clearStoryProp()
+        animal.sniffRotation = 0
+        storyDelay(380)
+      } else finishStory()
+    } else if (storyName === "show-and-tell") {
+      if (stage === 0) {
+        var kind = favoritePropKind !== "" ? favoritePropKind : "pebble"
+        direction = Math.random() < 0.5 ? -1 : 1
+        idleFrame = 3
+        setStoryProp(kind, petX + (direction > 0 ? petWidth - 4 : -10), barPropY(), 1, 1.1)
+        animal.sniffRotation = direction * 6
+        storyDelay(520)
+      } else if (stage === 1) {
+        idleFrame = 7
+        storyPropY = barPropY() - 6
+        storyPropScale = 1.25
+        animal.hopOffset = -2
+        storyDelay(700)
+      } else if (stage === 2) {
+        idleFrame = 5
+        storyPetOffset = direction * 28
+        storyPropX = petX + storyPetOffset + (direction > 0 ? petWidth + 4 : -12)
+        animal.hopOffset = -2
+        storyDelay(520)
+      } else if (stage === 3) {
+        idleFrame = 7
+        storyPropRotation = direction * 25
+        animal.hopOffset = 0
+        animal.sniffRotation = 0
+        storyDelay(720)
+      } else if (stage === 4) {
+        idleFrame = 3
+        storyPropY = barPropY()
+        storyPropScale = 1
+        storyPropOpacity = 0.7
+        commitStoryTravel()
+        storyDelay(460)
+      } else if (stage === 5) {
+        clearStoryProp()
+        storyDelay(320)
+      } else finishStory()
     } else finishStory()
   }
   function commitStoryTravel() {
@@ -1706,25 +1803,43 @@ Item {
     if (!sleeping || rustling || snoozed || barHidden) { schedulePeek(); return }
     deepSleeping = false; sleepMarkerTimer.stop()
     var roll = Math.random()
-    var night = currentHour() >= 20 || currentHour() < 6
+    var night = isNight()
+    var dusk = isDusk()
     var bonded = daysTogether >= 4 || outings >= 25
     var packed = collectionSize() >= 6
+    var hasTreasure = collectionSize() >= 1
     if (!isPenguin && roll < 0.48) { peekAnimation.restart(); return }
     if (isPenguin) {
-      if (night && bonded && roll > 0.78) homeStoryName = "night-dream"
-      else if (packed && roll < 0.18) homeStoryName = "nest-tidy"
-      else if (roll < 0.22) homeStoryName = "wake-look"
-      else if (roll < 0.42) homeStoryName = "preen"
-      else if (roll < 0.68) homeStoryName = "dream"
-      else if (night && roll > 0.84) homeStoryName = "night-dream"
-      else homeStoryName = "nest-tidy"
+      if (activityLevel === 0) {
+        if (dusk && roll < 0.34) homeStoryName = "dusk-nest"
+        else if (night && roll < 0.46) homeStoryName = "night-dream"
+        else if (roll < 0.42) homeStoryName = "dream"
+        else if (hasTreasure && roll < 0.58) homeStoryName = "nest-show"
+        else if (leavesFound > 0 && roll < 0.72) homeStoryName = "nest-hat"
+        else homeStoryName = "nest-rustle"
+      } else {
+        if (dusk && roll < 0.24) homeStoryName = "dusk-nest"
+        else if (night && bonded && roll > 0.78) homeStoryName = "night-dream"
+        else if (leavesFound > 0 && roll < 0.12) homeStoryName = "nest-hat"
+        else if (hasTreasure && roll < 0.16) homeStoryName = "nest-show"
+        else if (packed && roll < 0.22) homeStoryName = "nest-tidy"
+        else if (roll < 0.22) homeStoryName = "wake-look"
+        else if (roll < 0.42) homeStoryName = "preen"
+        else if (roll < 0.68) homeStoryName = "dream"
+        else if (night && roll > 0.84) homeStoryName = "night-dream"
+        else homeStoryName = "nest-tidy"
+      }
     } else {
-      homeStoryName = night && roll > 0.84 ? "night-dream" : roll < 0.74 ? "dream" : "nest-tidy"
+      homeStoryName = night && roll > 0.84 ? "night-dream" : dusk && roll < 0.3 ? "dusk-nest" : roll < 0.74 ? "dream" : "nest-tidy"
     }
     homeStoryStage = 0
-    if (bonded && Math.random() < 0.2)
+    if (bonded && Math.random() < (activityLevel === 0 ? 0.34 : 0.2))
       rememberEvent(homeStoryName === "night-dream" ? "Shared a quiet night watch from the nest."
+        : homeStoryName === "dusk-nest" ? "Watched evening settle over the bar from the nest."
+        : homeStoryName === "nest-hat" ? "Tried a leaf as a sleep cap. Approved, mostly."
+        : homeStoryName === "nest-show" ? "Lined up a favorite find beside the nest."
         : homeStoryName === "nest-tidy" ? "Re-sorted the treasures by the nest."
+        : homeStoryName === "nest-rustle" ? "Rustled in the nest and settled deeper."
         : homeStoryName === "preen" ? "Took a careful moment to tidy up."
         : "Stretched, peeked, and settled again.", 0)
     advanceHomeStory()
@@ -1770,6 +1885,47 @@ Item {
       else if (stage === 1) { storyPropOpacity = 0.95; storyPropScale = 1.2; homeStoryDelay(1100) }
       else if (stage === 2) { storyPropOpacity = 0.4; storyPropScale = 0.8; homeStoryDelay(850) }
       else if (stage === 3) { clearStoryProp(); homeStoryDelay(420) }
+      else finishHomeStory()
+    } else if (homeStoryName === "dusk-nest") {
+      if (stage === 0) {
+        if (activityLevel !== 0) homePoseFrame = 3
+        else sleepFrame = 1
+        den.rustleRotation = -1; setStoryProp("star", homeX + petWidth + 4, Math.round(habitat.height * 0.18), 0.5, 0.85); homeStoryDelay(700)
+      } else if (stage === 1) {
+        if (activityLevel !== 0) homePoseFrame = 0
+        else sleepFrame = 2
+        storyPropOpacity = 1; storyPropScale = 1.15; homeStoryDelay(1200)
+      } else if (stage === 2) {
+        if (activityLevel !== 0) homePoseFrame = 2
+        else sleepFrame = 0
+        storyPropOpacity = 0.65; den.rustleRotation = 0.8; homeStoryDelay(900)
+      } else if (stage === 3) { clearStoryProp(); den.rustleRotation = 0; homeStoryDelay(420) }
+      else finishHomeStory()
+    } else if (homeStoryName === "nest-show") {
+      if (stage === 0) { setStoryProp(favoritePropKind !== "" ? favoritePropKind : "pebble", homeX + petWidth - 6, barPropY(), 0.95, 1.1); den.rustleRotation = -1.4; homeStoryDelay(560) }
+      else if (stage === 1) { storyPropY = barPropY() - 4; storyPropScale = 1.2; den.rustleRotation = 1.2; homeStoryDelay(720) }
+      else if (stage === 2) { storyPropY = barPropY(); storyPropRotation = 20; den.rustleRotation = -0.6; homeStoryDelay(640) }
+      else if (stage === 3) { clearStoryProp(); den.rustleRotation = 0; homeStoryDelay(380) }
+      else finishHomeStory()
+    } else if (homeStoryName === "nest-hat") {
+      if (activityLevel === 0) {
+        if (stage === 0) { sleepFrame = 1; den.rustleRotation = 1.2; homeStoryDelay(820) }
+        else if (stage === 1) { sleepFrame = 2; den.rustleRotation = -0.8; homeStoryDelay(900) }
+        else if (stage === 2) { sleepFrame = 0; den.rustleRotation = 0.5; homeStoryDelay(640) }
+        else if (stage === 3) { den.rustleRotation = 0; homeStoryDelay(400) }
+        else finishHomeStory()
+      } else {
+        if (stage === 0) { homePoseFrame = 6; den.rustleRotation = 1.4; homeStoryDelay(680) }
+        else if (stage === 1) { homePoseFrame = 0; den.rustleRotation = -1; homeStoryDelay(720) }
+        else if (stage === 2) { homePoseFrame = 6; den.rustleRotation = 0.8; homeStoryDelay(640) }
+        else if (stage === 3) { den.rustleRotation = 0; homeStoryDelay(400) }
+        else finishHomeStory()
+      }
+    } else if (homeStoryName === "nest-rustle") {
+      if (stage === 0) { sleepFrame = 1; den.rustleRotation = -0.8; homeStoryDelay(520) }
+      else if (stage === 1) { sleepFrame = 2; den.rustleRotation = 1; homeStoryDelay(680) }
+      else if (stage === 2) { sleepFrame = 0; den.rustleRotation = -0.5; homeStoryDelay(560) }
+      else if (stage === 3) { den.rustleRotation = 0; homeStoryDelay(400) }
       else finishHomeStory()
     } else finishHomeStory()
   }
@@ -1897,7 +2053,7 @@ Item {
     var cleaned = ({})
     if (!raw || typeof raw !== "object") return cleaned
     var now = Date.now()
-    var names = ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen", "fire-hoop", "parade-leaf", "sumo-pebble", "cannon", "rain-umbrella", "fishing", "sneeze", "zoomies"]
+    var names = ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen", "fire-hoop", "parade-leaf", "sumo-pebble", "cannon", "rain-umbrella", "fishing", "sneeze", "zoomies", "dusk-watch", "show-and-tell"]
     for (var index = 0; index < names.length; index++) {
       var timestamp = safeTimestamp(raw[names[index]], now + 60000)
       if (timestamp > 0) cleaned[names[index]] = timestamp
@@ -1905,7 +2061,7 @@ Item {
     return cleaned
   }
   function episodeNames() {
-    return ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen", "fire-hoop", "parade-leaf", "sumo-pebble", "cannon", "rain-umbrella", "fishing", "sneeze", "zoomies"]
+    return ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen", "fire-hoop", "parade-leaf", "sumo-pebble", "cannon", "rain-umbrella", "fishing", "sneeze", "zoomies", "dusk-watch", "show-and-tell"]
   }
   function cleanRecentEpisodes(raw) {
     var cleaned = []
@@ -1964,7 +2120,7 @@ Item {
       episodeCounts = cleanEpisodeCounts(data.episodeCounts)
       repeatAvoided = safeCounter(data.repeatAvoided)
       var storedEpisode = String(data.lastDirectedEpisode || "")
-      lastDirectedEpisode = ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen", "fire-hoop", "parade-leaf", "sumo-pebble", "cannon", "rain-umbrella", "fishing", "sneeze", "zoomies"].indexOf(storedEpisode) >= 0 ? storedEpisode : ""
+      lastDirectedEpisode = ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen", "fire-hoop", "parade-leaf", "sumo-pebble", "cannon", "rain-umbrella", "fishing", "sneeze", "zoomies", "dusk-watch", "show-and-tell"].indexOf(storedEpisode) >= 0 ? storedEpisode : ""
       lastDirectedEpisodeAt = safeTimestamp(data.lastDirectedEpisodeAt, Date.now() + 60000)
       var storedActivity = Number(data.activity)
       activityLevel = isNaN(storedActivity) ? 1 : Math.max(0, Math.min(2, storedActivity))
@@ -2030,8 +2186,11 @@ Item {
   }
   function cycleActivity() { activityLevel = (activityLevel + 1) % 3; saveState(); scheduleRoam() }
   function setActivityLevel(level) {
-    activityLevel = Math.max(0, Math.min(2, Number(level) || 0))
+    var next = Math.max(0, Math.min(2, Number(level) || 0))
+    var enteringQuiet = next === 0 && activityLevel !== 0
+    activityLevel = next
     saveState(); scheduleRoam()
+    if (enteringQuiet && !sleeping && placed && !barHidden) goHomeGracefully()
   }
   function toggleCuriousCursor() {
     curiousCursor = !curiousCursor
@@ -2107,7 +2266,7 @@ Item {
   function runDevTrigger(name) {
     // Keep the Dev panel open so you can fire the next action immediately.
     panelOpen = true
-    devPanelOpen = true
+    if (devToolsEnabled) devPanelOpen = true
     prepareDevStage()
     petX = stageForDevTrigger(name)
     faceDevPreview()
@@ -2133,6 +2292,8 @@ Item {
     if ((name === "parade-leaf" || name === "rain-umbrella" || name === "leaf-toss") && leavesFound < 1)
       leavesFound = 1
     if ((name === "sumo-pebble" || name === "polish" || name === "lost-pebble") && pebblesFound < 1)
+      pebblesFound = 1
+    if (name === "show-and-tell" && collectionSize() < 1)
       pebblesFound = 1
     if (name === "collection-sort" && collectionSize() < 3) {
       pebblesFound = Math.max(pebblesFound, 1)
@@ -2868,7 +3029,7 @@ Item {
       root.runDevTrigger(name)
     }
     function home(name: string): void {
-      if (["wake-look", "preen", "dream", "nest-tidy", "night-dream"].indexOf(name) < 0) return
+      if (["wake-look", "preen", "dream", "nest-tidy", "night-dream", "dusk-nest", "nest-show", "nest-hat", "nest-rustle"].indexOf(name) < 0) return
       root.goToSleep(); peekTimer.stop()
       root.homeStoryName = name; root.homeStoryStage = 0; root.advanceHomeStory()
     }
@@ -2920,6 +3081,18 @@ Item {
       } else if (root.sleeping) {
         x = den.x; y = den.y
         r = x + den.width * den.scale; b = y + den.height * den.scale
+        if (root.storyPropKind !== "" && root.storyPropOpacity > 0) {
+          x = Math.min(x, storyProp.x)
+          y = Math.min(y, storyProp.y)
+          r = Math.max(r, storyProp.x + storyProp.width)
+          b = Math.max(b, storyProp.y + storyProp.height)
+        }
+        if (nestTreasure.visible) {
+          x = Math.min(x, nestTreasure.x)
+          y = Math.min(y, nestTreasure.y)
+          r = Math.max(r, nestTreasure.x + nestTreasure.width)
+          b = Math.max(b, nestTreasure.y + nestTreasure.height)
+        }
       } else {
         x = animal.x; y = animal.y
         r = x + animal.width; b = y + animal.height
@@ -2970,6 +3143,7 @@ Item {
         anchors.fill: parent
         source: Qt.resolvedUrl(root.speciesBase + (root.isPenguin
           ? root.homeStoryName === "wake-look" || root.homeStoryName === "preen"
+            || ((root.homeStoryName === "dusk-nest" || root.homeStoryName === "nest-hat") && root.activityLevel !== 0)
             ? "idle-actions/" + root.homePoseFrame + ".png"
             : "sleep-loop/" + root.sleepFrame + ".png"
           : "habitat.png"))
@@ -2987,12 +3161,20 @@ Item {
         id: sleepMarker
         x: parent.width - 7; y: 0
         visible: root.sleeping && root.isPenguin && root.deepSleeping && !root.rustling && root.homeStoryName === ""
-        text: "z"; color: Color.accent; font.pixelSize: 11; font.bold: true; z: 5
+        text: "z"; color: Color.accent; font.pixelSize: root.activityLevel === 0 ? 13 : 11; font.bold: true; z: 5
         SequentialAnimation on opacity {
           running: sleepMarker.visible; loops: Animation.Infinite
           NumberAnimation { from: 0.35; to: 0.95; duration: 1250; easing.type: Easing.InOutSine }
           NumberAnimation { from: 0.95; to: 0.35; duration: 1550; easing.type: Easing.InOutSine }
         }
+      }
+      PropArt {
+        visible: root.homeStoryName === "nest-hat" && root.leavesFound > 0
+        kind: "leaf-hat"
+        artScale: 0.95
+        x: parent.width * 0.28 - 4
+        y: -3
+        z: 6
       }
       MouseArea {
         anchors.fill: parent
@@ -3003,6 +3185,20 @@ Item {
         onClicked: function(mouse) { root.handlePetClick(mouse.button) }
         onContainsMouseChanged: root.onPetHover(containsMouse)
       }
+    }
+
+    PropArt {
+      id: nestTreasure
+      kind: root.favoritePropKind
+      x: root.homeX + root.petWidth * 0.70
+      y: root.barPropY()
+      artScale: root.activityLevel === 0 ? 1.05 : 0.9
+      opacity: 0.92
+      z: 2
+      visible: root.sleeping && root.isPenguin && !root.auditioning
+        && root.favoritePropKind !== ""
+        && root.homeStoryName !== "nest-tidy"
+        && root.homeStoryName !== "nest-show"
     }
 
     Item {
@@ -3258,8 +3454,8 @@ Item {
     bar: root.bar
     owner: root
     open: root.panelOpen
-    contentWidth: fittedContentWidth(root.devPanelOpen ? 380 : 340)
-    contentHeight: fittedContentHeight(panelColumn.implicitHeight, root.devPanelOpen ? 760 : 520)
+    contentWidth: fittedContentWidth(root.devToolsEnabled && root.devPanelOpen ? 380 : 340)
+    contentHeight: fittedContentHeight(panelColumn.implicitHeight, root.devToolsEnabled && root.devPanelOpen ? 760 : 520)
 
     Column {
       id: panelColumn
@@ -3445,6 +3641,14 @@ Item {
           }
         }
       }
+      Text {
+        width: parent.width
+        text: "Quiet sleeps · Normal wanders · Lively shows off"
+        color: Color.bar.text
+        opacity: 0.62
+        font.pixelSize: 11
+        wrapMode: Text.WordWrap
+      }
 
       Row {
         spacing: 8
@@ -3511,6 +3715,12 @@ Item {
         font.pixelSize: 12
         wrapMode: Text.WordWrap
       }
+
+      Column {
+        visible: root.devToolsEnabled
+        width: parent.width
+        spacing: 6
+        height: root.devToolsEnabled ? implicitHeight : 0
 
       Rectangle {
         width: parent.width
@@ -3585,6 +3795,8 @@ Item {
           }
         }
       }
+
+      } // devToolsEnabled Column
 
       Rectangle {
         width: parent.width

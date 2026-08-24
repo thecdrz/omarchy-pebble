@@ -33,6 +33,8 @@ rg -q 'timeout --foreground 1s dd' Companion.qml
 ! rg -q 'FileView' Companion.qml
 rg -q 'mktemp --tmpdir=' Companion.qml
 rg -q 'mv -fT --' Companion.qml
+rg -q 'devToolsEnabled' Companion.qml
+rg -q 'PEBBLE_DEV' Companion.qml
 rg -q 'omarchy plugin remove io.github.thecdrz.pebble' README.md
 rg -q 'Curious cursor' PRIVACY.md
 

@@ -30,13 +30,15 @@ to **Lively** and never to Reduced / Calm motion. Quiet stays a sleeping animal.
 | **Sneeze** | Wind-up sneeze that relocates him | In tree |
 | **Zoomies** | Rapid back-and-forth scoots, then proud stop | In tree |
 | Magic clock exit | Bang vanish; wrong-side peek; full emerge (Lively rare + Dev) | In tree |
+| Dusk watch | 17:00–19:00 linger; Quiet watches from the nest | In tree |
+| Nest treasures | Favorite find sleeps beside him; leaf cap / show-and-tell | In tree |
 | ~~Boss clock~~ | Cut — charge read as a zig-zag through the clock cluster | Cut |
 | Wall kick | Parked until placement-aware free space exists | Parked |
 | Icon-end staging | Far left/right tray zones are off-limits; use open lane inset | Rule |
 | Prop art pass | Sprites via `PropArt.qml` + `render-props.py`; fishing rod + rain drops | In tree |
 | ~~Tightrope~~ | Removed — did not read on the bar | Cut |
 
-Use **Dev triggers** in the PEBBLE panel to fire any stunt on demand.
+Use IPC `preview` / `dev` (or `PEBBLE_DEV=1` for the panel chips) to fire any stunt on demand while developing.
 
 ## Track B — Harden after publish
 

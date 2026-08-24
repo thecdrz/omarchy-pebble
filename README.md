@@ -10,7 +10,7 @@ curious, slightly clumsy, calm when ignored, and entirely local.
 
 - Wanders the full horizontal bar, including behind the center clock widgets.
 - Sleeps, stretches, preens, slips, belly-slides, and occasionally gets curious.
-- Finds leaves, pebbles, and stars, then carries them home to remember.
+- Finds leaves, pebbles, and stars, then keeps them: they sit by the nest, get shown off, and unlock leaf-hat / umbrella / parade beats.
 - Remembers recent special activities locally so it can vary what happens next.
 - Responds to hover, clicks, a local PEBBLE panel, and a one-hour snooze.
 - Offers Quiet, Normal, Lively, Reduced Motion, and optional Curious cursor modes.
@@ -24,7 +24,8 @@ curious, slightly clumsy, calm when ignored, and entirely local.
 - While Pebble is awake, left-click him for hops, slides, slips, and other small antics (chains still unlock belly slide / clock hide).
 - Right-click Pebble—sleeping or awake—to open the local **PEBBLE** panel: latest moment, Explore / Go home, Snooze, Energy, Curious, and Calm motion.
 - Middle-click Pebble to send him walking home.
-- Defaults sit in the middle: **Normal** energy, **Full** motion, **Curious on**. Curious is bar-local only. Quiet looks/rustles without chasing; Normal scoots mildly; Lively will chase, flee, and wake from the nest.
+- Defaults sit in the middle: **Normal** energy, **Full** motion, **Curious on**. Quiet looks/rustles without chasing; Normal scoots mildly; Lively will chase, flee, and wake from the nest.
+- Around 17:00–19:00, Pebble may stop to watch the bar go gold (Quiet does this from the nest).
 - Use **Snooze 1h** to pause autonomous outings; left-click Pebble to wake him early.
 - Use **Calm motion** to suppress dramatic autonomous antics and continuous breathing animation. Circus stunts stay **Lively** and never run under Calm.
 
@@ -83,6 +84,24 @@ physical test matrix.
 ```sh
 omarchy plugin add https://github.com/thecdrz/omarchy-pebble.git --enable
 ```
+
+Version is declared in `manifest.json` (currently `0.23.0`); Omarchy's plugin tooling tracks installs and updates from that field — no separate in-panel version is required.
+
+## Development
+
+Release validation:
+
+```sh
+tools/validate-release.sh
+```
+
+Optional 24-hour soak (requires a running Omarchy shell):
+
+```sh
+tools/soak-test.sh 86400 60 docs/evidence/soak-0.23.0.csv
+```
+
+Dev animation triggers are hidden from the shipped PEBBLE panel. For local review, set `PEBBLE_DEV=1` before restarting the shell, or use IPC `preview` / `dev` on `io.github.thecdrz.pebble`.
 
 ## Remove
 
