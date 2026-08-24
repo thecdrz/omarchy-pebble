@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "io.github.thecdrz.pebble",
   "name": "Pebble",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "author": "thecdrz",
   "license": "MIT",
-  "description": "A quiet, expressive penguin who inhabits your Omarchy bar.",
+  "description": "A quiet, expressive bar penguin with a local journal, Care controls, and optional curious cursor.",
   "kinds": ["panel"],
   "keepLoaded": true,
   "entryPoints": {

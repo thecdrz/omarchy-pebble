@@ -19,6 +19,17 @@ Item {
   readonly property string speciesName: speciesId === "penguin" ? "Penguin" : speciesId === "gecko" ? "Leopard gecko" : "Raccoon"
   readonly property bool isGecko: speciesId === "gecko"
   readonly property bool isPenguin: speciesId === "penguin"
+  // Soft lift so dark penguin art reads on dark bars without full recolor.
+  readonly property real petColorization: isPenguin ? 0.40 : isGecko ? 0.12 : 0.18
+  readonly property real petBrightness: isPenguin ? 0.18 : 0
+  // Belly-slide frames 4–5 fill ~2× the canvas vs walk; compensate so he doesn't balloon.
+  readonly property real slideVisualScale: {
+    if (action !== "sliding")
+      return 1
+    var factors = [0.98, 0.92, 0.88, 0.82, 0.60, 0.56, 0.84, 0.90]
+    var idx = Math.max(0, Math.min(7, poseFrame))
+    return factors[idx]
+  }
   property string conceptId: ""
   readonly property bool auditioning: conceptId !== ""
   readonly property string conceptName: conceptId === "bird" ? "Songbird"
@@ -73,6 +84,10 @@ Item {
   property int clockTransitDirection: -1
   property real clockTransitDestination: 0
   property string clockTransitEpisode: ""
+  property string clockStyle: ""
+  property int clockPeekHoldMs: 850
+  property int clockPeekLoops: 1
+  property string clockChaseItem: ""
   property bool slipQueued: false
   property string queuedDiscoveryItem: ""
   property string storyQueued: ""
@@ -96,6 +111,13 @@ Item {
   property bool discoveryVisible: false
   property real discoveryX: 0
   property string discoveryItem: ""
+  property real toyHop: 0
+  property real toySpin: 0
+  property int toyBumps: 0
+  property double lastToyBumpAt: 0
+  property real toyVx: 0
+  property bool toyFumblePending: false
+  property int toyEdgeHits: 0
   property bool peeking: false
   property bool rustling: false
   property real peekOpacity: 0
@@ -109,6 +131,25 @@ Item {
   property int activityLevel: 1
   property bool reducedMotion: false
   property bool introSeen: false
+  property bool curiousCursor: true
+  property bool petHovered: false
+  property bool gestureHintShown: false
+  property string pokeCue: ""
+  property real pointerX: -1
+  property real pointerY: -1
+  property real cursorBarX: -1
+  property real curiousLean: 0
+  property double lastCuriousScootAt: 0
+  property real chaseTargetX: -1
+  property bool pendingInteractiveWake: false
+  property int playMood: 1
+  property double lastPlayMoodFlipAt: 0
+  readonly property int curiousMargin: 16
+  readonly property string cursorHelper: {
+    var dir = String(Qt.resolvedUrl("."))
+    return dir.replace(/^file:\/\//, "") + "/bin/pebble-cursor"
+  }
+  readonly property int cursorInterval: sleeping ? 450 : 100
   property double firstMetAt: 0
   property string lastSeenDay: ""
   property int daysTogether: 1
@@ -138,6 +179,9 @@ Item {
   readonly property string discoveryGlyph: discoveryItem === "leaf" ? "◆" : discoveryItem === "pebble" ? "●" : discoveryItem === "star" ? "✦" : ""
   readonly property string activityName: activityLevel === 0 ? "Quiet" : activityLevel === 2 ? "Lively" : "Normal"
   readonly property string motionName: reducedMotion ? "Reduced" : "Full"
+  readonly property string curiousCursorName: curiousCursor ? "On" : "Off"
+  readonly property string hoverTipText: ""
+  readonly property var journalAnchor: auditioning ? conceptPet : sleeping ? den : animal
   readonly property string favoriteItem: pebblesFound >= leavesFound && pebblesFound >= starsFound && pebblesFound > 0 ? "pebbles"
     : leavesFound >= starsFound && leavesFound > 0 ? "leaves" : starsFound > 0 ? "stars" : "quiet corners"
   readonly property string bondName: daysTogether >= 14 || outings >= 100 ? "Trusted companion"
@@ -219,6 +263,8 @@ Item {
     : carriedItem !== "" ? "Carrying a " + carriedItem + " home"
     : episodeName === "clock-retreat" ? "Hiding behind the clock"
     : episodeName === "clock-cross" ? "Investigating the clock"
+    : episodeName === "clock-chase" ? "Chasing something behind the clock"
+    : episodeName === "clock-tumble" ? "Possibly stuck behind the clock"
     : episodeName === "discovery" ? "Searching for treasure"
     : episodeName === "slip" ? "Recovering with dignity"
     : episodeName === "belly-slide" ? "Sliding across the bar"
@@ -418,6 +464,11 @@ Item {
     if (walking) { walkMotion.stop(); acknowledgeAnimation.restart(); return }
     roamTimer.stop(); peekTimer.stop(); peekAnimation.stop(); peeking = false
     curiosityAnimation.stop(); settleTurn.stop(); poseTimer.stop()
+    pendingInteractiveWake = interactive === true
+    if (pendingInteractiveWake && cursorBarX >= 0)
+      chaseTargetX = clampX(cursorBarX - petWidth * 0.5)
+    else if (!pendingInteractiveWake)
+      chaseTargetX = -1
     if (sleeping) {
       cancelHomeStory()
       sleepMarkerTimer.stop(); deepSleeping = false
@@ -428,15 +479,26 @@ Item {
     else beginEmergence(interactive)
   }
   function planRoute() {
-    if (storyQueued === "edge-watch") finalX = Math.random() < 0.5 ? worldMinX + 6 : worldMaxX - 6
-    else if (storyQueued === "listen") finalX = clampX(passageRightX + petWidth + 24)
-    else if (storyQueued === "polish" || storyQueued === "collection-sort") finalX = clampX(homeX + 90 + Math.random() * 70)
-    else if (["firefly", "leaf-toss", "lost-pebble", "stargaze"].indexOf(storyQueued) >= 0)
+    var chasing = chaseTargetX >= 0
+    if (chasing) {
+      finalX = clampX(chaseTargetX)
+      chaseTargetX = -1
+    } else if (storyQueued === "edge-watch") {
+      finalX = Math.random() < 0.5 ? worldMinX + 6 : worldMaxX - 6
+    } else if (storyQueued === "listen") {
+      finalX = clampX(passageRightX + petWidth + 24)
+    } else if (storyQueued === "polish" || storyQueued === "collection-sort") {
+      finalX = clampX(homeX + 90 + Math.random() * 70)
+    } else if (["firefly", "leaf-toss", "lost-pebble", "stargaze"].indexOf(storyQueued) >= 0) {
       finalX = Math.max(worldMinX + 70, Math.min(worldMaxX - 90, chooseDestination()))
-    else finalX = chooseDestination()
-    pace = (isGecko ? 118 : personalityMood === "playful" ? 135 : personalityMood === "curious" ? 108 : 88)
-      + Math.random() * (isGecko ? 55 : 24)
-    pauseOnRoute = Math.abs(finalX - petX) > 118 && Math.random() < (personalityMood === "sleepy" ? 0.28 : 0.58)
+    } else {
+      finalX = chooseDestination()
+    }
+    pace = chasing
+      ? ((isGecko ? 130 : 148) + Math.random() * 36)
+      : ((isGecko ? 118 : personalityMood === "playful" ? 135 : personalityMood === "curious" ? 108 : 88)
+         + Math.random() * (isGecko ? 55 : 24))
+    pauseOnRoute = !chasing && Math.abs(finalX - petX) > 118 && Math.random() < (personalityMood === "sleepy" ? 0.28 : 0.58)
     pendingDestination = pauseOnRoute ? petX + (finalX - petX) * (0.42 + Math.random() * 0.22) : finalX
     if (isPenguin) { poseFrame = 0; action = "starting"; poseTimer.interval = 110; poseTimer.restart() }
     else startLeg(pendingDestination)
@@ -497,18 +559,165 @@ Item {
       markEpisode("discovery")
     }
     discoveryX = Math.max(4, Math.min(trackLength - 12, petX + (direction > 0 ? petWidth - 5 : -4)))
+    toyHop = 0; toySpin = 0; toyBumps = 0; lastToyBumpAt = 0
+    toyVx = 0; toyFumblePending = false; toyEdgeHits = 0
     discoveryVisible = true
+    if (!reducedMotion) toyIdleBounce.restart()
+  }
+  function bumpToy(kick) {
+    if (!discoveryVisible || discoveryItem === "") return
+    var delta = Number(kick) || 0
+    if (Math.abs(delta) < 1) delta = direction * 14
+    var weight = discoveryItem === "leaf" ? 0.72 : discoveryItem === "star" ? 1.15 : 1.0
+    var spinFactor = discoveryItem === "leaf" ? 14 : discoveryItem === "star" ? 11 : 8
+    delta *= weight
+    if (action === "sliding") delta *= 1.35
+    toyVx = delta
+    discoveryX = Math.max(4, Math.min(trackLength - 12, discoveryX + delta * 0.45))
+    toySpin += delta * spinFactor
+    toyBumps++
+    lastToyBumpAt = Date.now()
+    toyHopBounce.restart()
+    if (!toyPhysicsTimer.running) toyPhysicsTimer.start()
+    if (toyBumps === 1) {
+      if (discoveryItem === "pebble")
+        rememberEvent("Nudged a pebble. It rolled away like it had plans.", 1)
+      else if (discoveryItem === "leaf")
+        rememberEvent("Poked a leaf. Unexpected aerodynamics.", 1)
+      else
+        rememberEvent("Batted a tiny star. It bounced on principle.", 1)
+    } else if (toyBumps === 3) {
+      rememberEvent(discoveryItem === "pebble" ? "The pebble is winning. Temporarily."
+        : discoveryItem === "leaf" ? "Leaf chase: ongoing."
+        : "Star refused to be collected without drama.", 1)
+    } else if (toyBumps === 5) {
+      rememberEvent("This is becoming a sport.", 1)
+    }
+  }
+  function toyHitEdge(side) {
+    toyEdgeHits++
+    toyVx *= -0.62
+    if (toyEdgeHits === 1) {
+      rememberEvent(side < 0
+        ? "Toy kissed the left edge and came back offended."
+        : "Toy bounced off the right edge with confidence.", 1)
+    } else if (toyEdgeHits === 3) {
+      rememberEvent("The bar has walls. The toy has opinions.", 1)
+    }
+  }
+  function maybeToyEscapeClock() {
+    if (!discoveryVisible || reducedMotion) return false
+    if (clockApproach.running || clockOcclusion.running || clockTransitOcclusion.running) return false
+    if (Math.abs(discoveryX - passageRightX) > 30 && Math.abs(discoveryX - passageLeftX) > 30) return false
+    if (Math.random() > 0.34) return false
+    clockChaseItem = discoveryItem
+    discoveryVisible = false
+    discoveryItem = ""
+    toyVx = 0
+    toyPhysicsTimer.stop()
+    rememberEvent(clockChaseItem === "pebble" ? "Pebble took the clock shortcut. Rude."
+      : clockChaseItem === "leaf" ? "Leaf vanished behind the clock. Predictable."
+      : "Star blinked behind the clock.", 1)
+    if (isPenguin && journeyPhase === "outbound" && !sleeping)
+      startClockEpisode(false)
+    return true
+  }
+  function stepToyPhysics() {
+    if (!discoveryVisible || reducedMotion) { toyVx = 0; toyPhysicsTimer.stop(); return }
+    if (Math.abs(toyVx) < 0.35) { toyVx = 0; toyPhysicsTimer.stop(); return }
+    discoveryX += toyVx * 0.55
+    toySpin += toyVx * (discoveryItem === "leaf" ? 2.4 : 1.6)
+    var drag = discoveryItem === "leaf" ? 0.94 : discoveryItem === "star" ? 0.90 : 0.86
+    toyVx *= drag
+    if (discoveryX <= 4) { discoveryX = 4; toyHitEdge(-1) }
+    else if (discoveryX >= trackLength - 12) { discoveryX = trackLength - 12; toyHitEdge(1) }
+    else if (Math.abs(toyVx) > 4 && maybeToyEscapeClock()) return
+    if (Math.abs(toyVx) > 3 && !toyHopBounce.running)
+      toyHop = discoveryItem === "star" ? -2.2 : discoveryItem === "leaf" ? -1.4 : -0.8
+  }
+  function considerToyNudge() {
+    if (!discoveryVisible || reducedMotion || auditioning || sleeping) return
+    if (Date.now() - lastToyBumpAt < 220) return
+    var nose = petX + (direction > 0 ? petWidth * 0.82 : petWidth * 0.18)
+    var gap = discoveryX + 5 - nose
+    var reach = action === "sliding" ? 26 : 15
+    if (Math.abs(gap) > reach) return
+    if (action === "sliding")
+      bumpToy(direction * (30 + Math.random() * 28))
+    else if (walking || action === "curious")
+      bumpToy((gap >= 0 ? 1 : -1) * (14 + Math.random() * 16))
+  }
+  function finishToyCatch() {
+    toyFumblePending = false
+    if (!discoveryVisible || discoveryItem === "") return
+    var nose = petX + petWidth * 0.5
+    if (Math.abs(discoveryX - nose) < 90) {
+      carriedItem = discoveryItem
+      discoveryVisible = false
+      discoveryItem = ""
+      toyVx = 0
+      toyIdleBounce.stop(); toyHopBounce.stop(); toyPhysicsTimer.stop()
+      toyHop = 0
+      rememberEvent("Caught it on the second try. Dignity restored.", 1)
+    } else {
+      rememberEvent(discoveryItem === "pebble" ? "Pebble escaped. Rematch pending."
+        : discoveryItem === "leaf" ? "Leaf got away. Wind is a co-conspirator."
+        : "Star outmaneuvered him. Brief silence.", 1)
+      toyVx *= 0.3
+    }
   }
   function collectDiscovery() {
     if (!discoveryVisible || discoveryItem === "") return
-    carriedItem = discoveryItem; discoveryVisible = false; discoveryItem = ""
+    if (!reducedMotion && !toyFumblePending && toyBumps < 2 && Math.random() < 0.42) {
+      toyFumblePending = true
+      bumpToy(direction * (22 + Math.random() * 26))
+      rememberEvent(discoveryItem === "pebble" ? "Grabbed for the pebble. Missed. Physics laughed."
+        : discoveryItem === "leaf" ? "Almost had the leaf. Almost."
+        : "Star slipped through. Typical.", 1)
+      toyCatchTimer.restart()
+      return
+    }
+    if (!reducedMotion && toyBumps < 1 && action !== "sliding")
+      bumpToy(direction * (10 + Math.random() * 8))
+    carriedItem = discoveryItem
+    discoveryVisible = false
+    discoveryItem = ""
+    toyFumblePending = false
+    toyVx = 0
+    toyIdleBounce.stop(); toyHopBounce.stop(); toyPhysicsTimer.stop()
+    toyHop = 0
   }
   function storeDiscovery() {
-    if (carriedItem === "leaf") { leavesFound++; rememberEvent("Brought home a particularly interesting leaf.", 3) }
-    else if (carriedItem === "pebble") { pebblesFound++; rememberEvent("Found another pebble. Excellent pebble.", 3) }
-    else if (carriedItem === "star") { starsFound++; rememberEvent("Found a tiny star and carried it safely home.", 3) }
-    carriedItem = ""; saveState()
+    var chase = toyBumps >= 2 || toyEdgeHits >= 1
+    if (carriedItem === "leaf") {
+      leavesFound++
+      rememberEvent(chase ? "After a brief leaf chase, secured the evidence." : "Brought home a particularly interesting leaf.", 3)
+    } else if (carriedItem === "pebble") {
+      pebblesFound++
+      rememberEvent(chase ? "Won a rolling contest with a pebble. Barely." : "Found another pebble. Excellent pebble.", 3)
+    } else if (carriedItem === "star") {
+      starsFound++
+      rememberEvent(chase ? "Persuaded a tiny star to come home. It bounced the whole way." : "Found a tiny star and carried it safely home.", 3)
+    }
+    carriedItem = ""
+    toyBumps = 0
+    toyEdgeHits = 0
+    toyFumblePending = false
+    saveState()
   }
+
+  onPetXChanged: if (discoveryVisible) considerToyNudge()
+  onDiscoveryVisibleChanged: {
+    if (!discoveryVisible) {
+      toyIdleBounce.stop()
+      toyHopBounce.stop()
+      toyPhysicsTimer.stop()
+      toyVx = 0
+      toyHop = 0
+      toyFumblePending = false
+    }
+  }
+
   function curiosityFinished() {
     if (finalCuriosity && isPenguin) {
       collectDiscovery()
@@ -556,15 +765,60 @@ Item {
     }
     else startReturn()
   }
+  function chooseClockStyle(suspicious) {
+    if (suspicious) return "shy"
+    var toyNear = discoveryVisible && Math.abs(discoveryX - passageRightX) < 140
+    if (toyNear && Math.random() < 0.58) return "chase"
+    if (!toyNear && Math.random() < 0.20) return "chase"
+    if (Math.random() < 0.14) return "tumble"
+    if (Math.random() < 0.36) return "shy"
+    return "bold"
+  }
   function startClockEpisode(suspicious) {
     if (!isPenguin || !placed || clockApproach.running || clockOcclusion.running || clockTransitOcclusion.running) return
     if (petX + petWidth < passageLeftX) { startClockTransit(doorwayX, 1); return }
     markEpisode(suspicious ? "retreat" : "clock")
     walkMotion.stop(); slideMotion.stop(); slipMotion.stop(); poseTimer.stop(); curiosityAnimation.stop()
     slideTimer.stop(); slipTimer.stop(); idleActionTimer.stop(); idleBlendAnimation.stop(); idleTransitionMotion.stop()
-    discoveryVisible = false; discoveryItem = ""
-    episodeName = suspicious ? "clock-retreat" : "clock-cross"
-    personalityMood = suspicious ? "cautious" : "curious"
+    var escapedToy = clockChaseItem
+    clockStyle = escapedToy !== "" ? "chase" : chooseClockStyle(suspicious === true)
+    clockPeekHoldMs = clockStyle === "shy" ? 480 : clockStyle === "bold" ? 1180 : clockStyle === "tumble" ? 1680 : 920
+    clockPeekLoops = clockStyle === "shy" ? 1 : clockStyle === "bold" ? 2 : clockStyle === "tumble" ? 3 : 2
+    if (clockStyle === "chase") {
+      if (escapedToy !== "") {
+        // Toy already fled behind the clock — pursue without re-spawning on this side.
+        clockChaseItem = escapedToy
+        discoveryVisible = false
+        discoveryItem = ""
+      } else {
+        if (!discoveryVisible || discoveryItem === "") {
+          discoveryItem = randomDiscoveryType()
+          discoveryX = clampX(petX + (direction > 0 ? petWidth - 4 : -6))
+          toyHop = 0; toySpin = 0; toyBumps = 0
+          discoveryVisible = true
+        }
+        clockChaseItem = discoveryItem
+        // Roll the toy toward the clock mouth so he has something to pursue.
+        discoveryX = clampX(passageRightX - 6)
+        toySpin += 40
+        if (!reducedMotion) toyHopBounce.restart()
+      }
+      episodeName = "clock-chase"
+      personalityMood = "playful"
+    } else {
+      clockChaseItem = ""
+      discoveryVisible = false; discoveryItem = ""
+      if (clockStyle === "tumble") {
+        episodeName = "clock-tumble"
+        personalityMood = "playful"
+      } else if (clockStyle === "shy") {
+        episodeName = suspicious ? "clock-retreat" : "clock-cross"
+        personalityMood = "cautious"
+      } else {
+        episodeName = "clock-cross"
+        personalityMood = "curious"
+      }
+    }
     clockTransit = false
     direction = -1; targetX = passageRightX + 3
     action = "clockApproach"; walkFrame = 0; animalOpacity = 1
@@ -599,15 +853,50 @@ Item {
     startLeg(destination)
   }
   function finishClockEpisode() {
-    if (episodeName === "clock-retreat") {
+    animalOpacity = 1
+    direction = 1
+    petX = passageRightX + 3
+    retreatQueued = false
+    if (clockStyle === "shy" || episodeName === "clock-retreat") {
       suspiciousRetreats++
-      rememberEvent("Retreated behind the clock. Remains suspicious.", 2)
+      rememberEvent(episodeName === "clock-retreat"
+        ? "Retreated behind the clock. Remains suspicious."
+        : "Peeked out, reconsidered, and hid again.", 2)
+    } else if (clockStyle === "chase") {
+      clockPassages++
+      // Toy tumbles out first; he claims it with residual dignity.
+      if (clockChaseItem !== "") {
+        discoveryItem = clockChaseItem
+        discoveryX = clampX(passageRightX + 16)
+        discoveryVisible = true
+        toyHop = 0; toySpin = 25; toyBumps = Math.max(1, toyBumps)
+        if (!reducedMotion) toyHopBounce.restart()
+        carriedItem = clockChaseItem
+        discoveryVisible = false
+        discoveryItem = ""
+        rememberEvent(clockChaseItem === "pebble" ? "Chased a pebble behind the clock and won. Debatably."
+          : clockChaseItem === "leaf" ? "Pursued a leaf into the clock. Retrieved with leaves in places."
+          : "A tiny star tried the clock shortcut. He disagreed.", 2)
+      } else {
+        rememberEvent("Chased something behind the clock. It escaped into Time.", 2)
+      }
+      clockChaseItem = ""
+    } else if (clockStyle === "tumble") {
+      clockPassages++
+      rememberEvent("Got stuck behind the clock. Emerged with questionable grace.", 2)
     } else {
       clockPassages++
-      rememberEvent("Checked behind the clock. Time remains suspicious.", 2)
+      rememberEvent("Stared down the clock. Time blinked first.", 2)
     }
+    episodeName = ""
+    var tumbleOut = clockStyle === "tumble" && !reducedMotion
+    clockStyle = ""
     saveState()
-    episodeName = ""; retreatQueued = false; animalOpacity = 1; direction = 1; petX = passageRightX + 3
+    if (tumbleOut) {
+      // Rare clumsy exit — a short slip sells the stuck beat.
+      startSlip()
+      return
+    }
     startReturn()
   }
   function startReturn() {
@@ -755,16 +1044,27 @@ Item {
     if (!sleeping || rustling || snoozed || barHidden) { schedulePeek(); return }
     deepSleeping = false; sleepMarkerTimer.stop()
     var roll = Math.random()
+    var night = currentHour() >= 20 || currentHour() < 6
+    var bonded = daysTogether >= 4 || outings >= 25
+    var packed = collectionSize() >= 6
     if (!isPenguin && roll < 0.48) { peekAnimation.restart(); return }
-    homeStoryName = isPenguin
-      ? roll < 0.25 ? "wake-look"
-        : roll < 0.44 ? "preen"
-        : roll < 0.65 ? "dream"
-        : (currentHour() >= 20 || currentHour() < 6) && roll > 0.86 ? "night-dream"
-        : "nest-tidy"
-      : (currentHour() >= 20 || currentHour() < 6) && roll > 0.84 ? "night-dream"
-        : roll < 0.74 ? "dream" : "nest-tidy"
+    if (isPenguin) {
+      if (night && bonded && roll > 0.78) homeStoryName = "night-dream"
+      else if (packed && roll < 0.18) homeStoryName = "nest-tidy"
+      else if (roll < 0.22) homeStoryName = "wake-look"
+      else if (roll < 0.42) homeStoryName = "preen"
+      else if (roll < 0.68) homeStoryName = "dream"
+      else if (night && roll > 0.84) homeStoryName = "night-dream"
+      else homeStoryName = "nest-tidy"
+    } else {
+      homeStoryName = night && roll > 0.84 ? "night-dream" : roll < 0.74 ? "dream" : "nest-tidy"
+    }
     homeStoryStage = 0
+    if (bonded && Math.random() < 0.2)
+      rememberEvent(homeStoryName === "night-dream" ? "Shared a quiet night watch from the nest."
+        : homeStoryName === "nest-tidy" ? "Re-sorted the treasures by the nest."
+        : homeStoryName === "preen" ? "Took a careful moment to tidy up."
+        : "Stretched, peeked, and settled again.", 0)
     advanceHomeStory()
   }
   function homeStoryDelay(milliseconds) {
@@ -815,33 +1115,93 @@ Item {
     cancelStory(); cancelHomeStory()
     action = "home"; journeyPhase = "home"; petX = doorwayX; poseFrame = 0; pokeCount = 0
     sleepFrame = 0; idleBeatsRemaining = 0; outingActsRemaining = 0; playfulQueued = false; retreatQueued = false; clockQueued = false; slipQueued = false
-    episodeName = ""; clockTransit = false; clockTransitEpisode = ""; animalOpacity = 1; discoveryVisible = false; discoveryItem = ""; personalityMood = "sleepy"
+    episodeName = ""; clockTransit = false; clockTransitEpisode = ""; clockStyle = ""; clockChaseItem = ""; animalOpacity = 1; discoveryVisible = false; discoveryItem = ""; toyVx = 0; toyFumblePending = false; toyEdgeHits = 0; personalityMood = "sleepy"
     animal.sniffRotation = 0; animal.hopOffset = 0; animal.breathScale = 1
     peeking = false; rustling = false; peekOpacity = 0; scheduleRoam(); schedulePeek(); scheduleSleepMarker()
+  }
+  function goHomeGracefully() {
+    // Prefer a visible walk home so he does not vanish mid-bar and pop into the nest.
+    if (sleeping || barHidden || !placed) { goToSleep(); return }
+    if (Math.abs(petX - doorwayX) < 28) { goToSleep(); return }
+    close()
+    storyQueued = ""
+    episodeName = ""
+    playfulQueued = false
+    retreatQueued = false
+    clockQueued = false
+    slipQueued = false
+    chaseTargetX = -1
+    startReturn()
   }
   function goToSleep() {
     walkMotion.stop(); curiosityAnimation.stop(); acknowledgeAnimation.stop(); playfulAnimation.stop()
     rustleAnimation.stop(); settleTurn.stop(); poseTimer.stop(); conceptTravel.stop(); slideMotion.stop(); slideTimer.stop()
     slipMotion.stop(); slipTimer.stop(); clockApproach.stop(); clockOcclusion.stop(); clockTransitOcclusion.stop()
-    idleActionTimer.stop(); idleBlendAnimation.stop(); idleTransitionMotion.stop(); curlUp()
+    idleActionTimer.stop(); idleBlendAnimation.stop(); idleTransitionMotion.stop()
+    animalOpacity = 1
+    chaseTargetX = -1
+    pendingInteractiveWake = false
+    curlUp()
   }
   function poke() {
     if (snoozed) cancelSnooze()
     var now = Date.now()
     pokeCount = now - lastPoke < 2200 ? Math.min(3, pokeCount + 1) : 1; lastPoke = now
     totalPokes++; saveState()
-    if (sleeping) wakeAndWalk(true)
-    else if (posing) {
+    pokeCue = ""
+    if (sleeping) {
+      var wakeRoll = Math.random()
+      if (!reducedMotion && isPenguin && wakeRoll < 0.28) {
+        wakeAndWalk(true)
+        playfulQueued = true
+      } else if (!reducedMotion && isPenguin && wakeRoll < 0.48) {
+        retreatQueued = true
+        wakeAndWalk(true)
+      } else if (!reducedMotion && wakeRoll < 0.68) {
+        playMood = Math.random() < 0.5 ? 1 : -1
+        wakeAndWalk(true)
+      } else {
+        wakeAndWalk(true)
+      }
+      return
+    }
+    if (posing) {
       if (!reducedMotion && pokeCount >= 3 && isPenguin) retreatQueued = true
       else if (!reducedMotion && pokeCount >= 2 && isPenguin) playfulQueued = true
+      return
     }
-    else {
-      if (storyName !== "") cancelStory()
-      walkMotion.stop(); curiosityAnimation.stop(); acknowledgeAnimation.stop(); playfulAnimation.stop()
-      if (!reducedMotion && pokeCount >= 3 && isPenguin) startClockEpisode(true)
-      else if (!reducedMotion && pokeCount >= 2 && isPenguin) startSlide()
-      else if (pokeCount >= 2) playfulAnimation.restart(); else acknowledgeAnimation.restart()
+    if (storyName !== "") cancelStory()
+    walkMotion.stop(); curiosityAnimation.stop(); acknowledgeAnimation.stop(); playfulAnimation.stop()
+    // Poke chain still unlocks slide / clock hide; first poke often rolls a surprise.
+    if (!reducedMotion && pokeCount >= 3 && isPenguin) {
+      startClockEpisode(true)
+    } else if (!reducedMotion && pokeCount >= 2 && isPenguin) {
+      startSlide()
+    } else if (pokeCount >= 2) {
+      playfulAnimation.restart()
+    } else if (!reducedMotion && Math.random() < 0.55) {
+      var antic = Math.floor(Math.random() * 6)
+      if (antic === 0 && isPenguin) startSlip()
+      else if (antic === 1 && isPenguin) startSlide()
+      else if (antic === 2) {
+        playMood = -1
+        scootAlongBar((cursorBarX >= 0 && cursorBarX < petX + petWidth * 0.5 ? 70 : -70), 3.0)
+      } else if (antic === 3) {
+        playMood = 1
+        if (cursorBarX >= 0) {
+          var toward = clampX(cursorBarX - petWidth * 0.5)
+          scootAlongBar(toward - petX, 3.2)
+        } else playfulAnimation.restart()
+      } else if (antic === 4) playfulAnimation.restart()
+      else acknowledgeAnimation.restart()
+      if (Math.random() < 0.35) rememberEvent("Got startled by a poke.", 0)
+    } else {
+      acknowledgeAnimation.restart()
     }
+  }
+  function telegraphPoke(message) {
+    // Tips removed — keep poke chaining without on-bar text.
+    pokeCue = ""
   }
 
   function safeCounter(value) {
@@ -930,6 +1290,8 @@ Item {
       activityLevel = isNaN(storedActivity) ? 1 : Math.max(0, Math.min(2, storedActivity))
       reducedMotion = data.reducedMotion === true
       introSeen = data.introSeen === true
+      curiousCursor = ("curiousCursor" in data) ? data.curiousCursor === true : true
+      gestureHintShown = data.gestureHintShown === true
       firstMetAt = safeTimestamp(data.firstMetAt, Date.now() + 60000)
       lastSeenDay = /^\d{4}-\d{2}-\d{2}$/.test(String(data.lastSeenDay || "")) ? String(data.lastSeenDay) : ""
       daysTogether = Math.max(1, Math.min(100000, safeCounter(data.daysTogether) || 1))
@@ -954,6 +1316,7 @@ Item {
       episodeTimes: episodeTimes, lastDirectedEpisode: lastDirectedEpisode, lastDirectedEpisodeAt: lastDirectedEpisodeAt,
       recentEpisodes: recentEpisodes, episodeCounts: episodeCounts, repeatAvoided: repeatAvoided,
       activity: activityLevel, reducedMotion: reducedMotion, introSeen: introSeen,
+      curiousCursor: curiousCursor, gestureHintShown: gestureHintShown,
       firstMetAt: firstMetAt, lastSeenDay: lastSeenDay, daysTogether: daysTogether, snoozeUntil: snoozeUntil
     }, null, 2) + "\n"
     if (payload.length > stateMaxBytes) {
@@ -986,7 +1349,149 @@ Item {
     stateWriteProc.running = true
   }
   function cycleActivity() { activityLevel = (activityLevel + 1) % 3; saveState(); scheduleRoam() }
+  function setActivityLevel(level) {
+    activityLevel = Math.max(0, Math.min(2, Number(level) || 0))
+    saveState(); scheduleRoam()
+  }
+  function toggleCuriousCursor() {
+    curiousCursor = !curiousCursor
+    if (!curiousCursor) { cursorBarX = -1; curiousLean = 0 }
+    saveState()
+  }
+  function setCuriousCursor(enabled) {
+    curiousCursor = enabled === true
+    if (!curiousCursor) { cursorBarX = -1; curiousLean = 0 }
+    saveState()
+  }
   function acknowledgeIntro() { if (!introSeen) { introSeen = true; saveState() } }
+  function markGestureHint() {
+    if (!gestureHintShown) { gestureHintShown = true; saveState() }
+  }
+  function openJournal() {
+    panelOpen = true
+    markGestureHint()
+  }
+  function openCare() {
+    // Alias — single flat panel; kept for IPC compatibility.
+    openJournal()
+  }
+  function onPetHover(entered) {
+    petHovered = entered
+    if (!entered) return
+    if (sleeping && !rustling && !snoozed && !reducedMotion) {
+      den.rustleRotation = personalityMood === "playful" ? 2.8 : (gestureHintShown ? 1.4 : 2.0)
+      if (collectionSize() >= 8 && Math.random() < 0.12)
+        rememberEvent("Stirred at a familiar touch near the nest.", 0)
+      hoverStirTimer.restart()
+    } else if (!sleeping && !posing && !walking && !reducedMotion) {
+      var lean = direction * (curiousCursor ? 10 : 6)
+      if (personalityMood === "curious") lean *= 1.2
+      animal.sniffRotation = lean
+      animal.hopOffset = personalityMood === "sleepy" ? -1.0 : personalityMood === "playful" ? -3.2 : -2.2
+      hoverStirTimer.restart()
+    }
+  }
+  function pointerOnBar() {
+    if (!petScreen || pointerX < 0) return false
+    var sx = Number(petScreen.x) || 0
+    var sy = Number(petScreen.y) || 0
+    var sw = Number(petScreen.width) || 0
+    var sh = Number(petScreen.height) || 0
+    if (pointerX < sx || pointerX > sx + sw || pointerY < sy || pointerY > sy + sh) return false
+    var depth = barSize + curiousMargin
+    if (barPosition === "top") return pointerY - sy <= depth
+    if (barPosition === "bottom") return (sy + sh) - pointerY <= depth
+    return false
+  }
+  function flipPlayMoodMaybe() {
+    var now = Date.now()
+    if (now - lastPlayMoodFlipAt < 7000) return
+    if (Math.random() < 0.28) {
+      playMood *= -1
+      lastPlayMoodFlipAt = now
+    }
+  }
+  function scootAlongBar(deltaX, durationScale) {
+    if (auditioning || posing || storyName !== "" || snoozed) return false
+    var scoot = clampX(petX + deltaX)
+    if (Math.abs(scoot - petX) < 10) return false
+    walkMotion.stop()
+    curiosityAnimation.stop()
+    acknowledgeAnimation.stop()
+    playfulAnimation.stop()
+    targetX = scoot
+    direction = scoot >= petX ? 1 : -1
+    walkMotion.from = petX
+    walkMotion.to = scoot
+    walkMotion.duration = Math.max(140, Math.round(Math.abs(scoot - petX) * (durationScale || 4.2)))
+    action = "walk"
+    walkFrame = 0
+    walkMotion.restart()
+    return true
+  }
+  function applyCuriousLean(targetX) {
+    if (!curiousCursor || reducedMotion || auditioning) { curiousLean = 0; return }
+    if (posing || storyName !== "") return
+    var petCenter = (sleeping ? homeX : petX) + petWidth * 0.5
+    var delta = targetX - petCenter
+    if (Math.abs(delta) < 10) { curiousLean = 0; return }
+    var lean = Math.max(-1, Math.min(1, delta / 90))
+    curiousLean = lean
+    flipPlayMoodMaybe()
+    var chaseSign = playMood >= 0 ? 1 : -1
+    if (sleeping && !rustling && !snoozed) {
+      den.rustleRotation = lean * 4.0
+      direction = lean >= 0 ? 1 : -1
+      // Navbar-cat style: wake and come toward the pointer when it enters the nest zone.
+      if (Math.abs(delta) < 150 && Date.now() - lastCuriousScootAt > 1600) {
+        lastCuriousScootAt = Date.now()
+        chaseTargetX = clampX(targetX - petWidth * 0.5)
+        wakeAndWalk(true)
+      }
+    } else if (!sleeping && !walking) {
+      animal.sniffRotation = lean * 14
+      animal.hopOffset = -1.6
+      direction = (chaseSign * lean) >= 0 ? 1 : -1
+      if (Math.abs(delta) > 28 && activityLevel > 0 && !snoozed
+          && Date.now() - lastCuriousScootAt > 900) {
+        lastCuriousScootAt = Date.now()
+        var dash = Math.min(110, Math.max(42, Math.abs(delta) * 0.62)) * chaseSign * (lean >= 0 ? 1 : -1)
+        if (scootAlongBar(dash, 3.2) && Math.random() < 0.28)
+          rememberEvent(playMood >= 0 ? "Chased the pointer along the bar." : "Bolted away from the pointer.", 0)
+      }
+    } else if (walking && Math.abs(delta) > 34 && Date.now() - lastCuriousScootAt > 1100
+               && activityLevel > 0 && !snoozed) {
+      lastCuriousScootAt = Date.now()
+      // Steer the current walk toward / away from the pointer instead of a tiny sidestep.
+      if (playMood >= 0 && Math.abs(delta) > 56) {
+        walkMotion.stop()
+        var toward = clampX(petX + Math.min(120, Math.max(48, Math.abs(delta) * 0.55)) * (lean >= 0 ? 1 : -1))
+        if (Math.abs(toward - petX) > 10) {
+          root.targetX = toward
+          direction = toward >= petX ? 1 : -1
+          walkMotion.from = petX
+          walkMotion.to = toward
+          walkMotion.duration = Math.max(160, Math.round(Math.abs(toward - petX) * 3.4))
+          action = "walk"
+          walkFrame = 0
+          walkMotion.restart()
+        }
+      } else {
+        var step = Math.min(96, Math.max(44, Math.abs(delta) * 0.48)) * chaseSign * (lean >= 0 ? 1 : -1)
+        scootAlongBar(step, 3.0)
+      }
+    }
+  }
+  function ingestPointer(x, y) {
+    if (!curiousCursor || !petScreen || barHidden || !horizontalBar) {
+      pointerX = -1; pointerY = -1; cursorBarX = -1; curiousLean = 0
+      return
+    }
+    pointerX = x; pointerY = y
+    if (!pointerOnBar()) { cursorBarX = -1; curiousLean = 0; return }
+    cursorBarX = x - (Number(petScreen.x) || 0)
+    applyCuriousLean(cursorBarX)
+  }
   function toggleReducedMotion() {
     reducedMotion = !reducedMotion
     if (reducedMotion && (action === "sliding" || action === "slipping")) goToSleep()
@@ -1026,8 +1531,10 @@ Item {
   }
   function handlePetClick(button) {
     acknowledgeIntro()
-    if (button === Qt.RightButton) panelOpen = !panelOpen
-    else if (button === Qt.MiddleButton) goToSleep()
+    if (button === Qt.RightButton) {
+      if (panelOpen) { panelOpen = false }
+      else openJournal()
+    } else if (button === Qt.MiddleButton) goHomeGracefully()
     else if (auditioning) startConceptMotion(true)
     else poke()
   }
@@ -1143,6 +1650,43 @@ Item {
       root.schedulePeek()
     }
   }
+
+  Timer {
+    id: pokeCueTimer
+    interval: 1600
+    repeat: false
+    onTriggered: root.pokeCue = ""
+  }
+  Timer {
+    id: hoverStirTimer
+    interval: 420
+    repeat: false
+    onTriggered: {
+      if (root.sleeping) den.rustleRotation = 0
+      else {
+        animal.sniffRotation = 0
+        animal.hopOffset = 0
+      }
+    }
+  }
+  // Navbar-Cat style: long-lived Hyprland socket sampler (not hyprctl-per-tick).
+  Process {
+    id: cursorFeed
+    running: root.curiousCursor && root.horizontalBar && !root.barHidden
+    command: [root.cursorHelper]
+    stdinEnabled: true
+    stdout: SplitParser {
+      onRead: function(line) {
+        var parts = String(line).trim().split(/\s+/)
+        if (parts.length < 2) return
+        var x = parseInt(parts[0], 10)
+        var y = parseInt(parts[1], 10)
+        if (isNaN(x) || isNaN(y)) return
+        root.ingestPointer(x, y)
+      }
+    }
+  }
+  onCursorIntervalChanged: if (cursorFeed.running) cursorFeed.write(cursorInterval + "\n")
   Timer { id: conceptIdleTimer; onTriggered: root.startConceptMotion(false) }
   Timer { id: idleActionTimer; onTriggered: root.advanceIdleRoutine() }
   Timer { id: storyTimer; onTriggered: root.advanceStory() }
@@ -1196,20 +1740,37 @@ Item {
       script: {
         root.direction = -1
         root.petX = root.passageLeftX - root.petWidth * 0.42
-        root.idleFrame = root.episodeName === "clock-retreat" ? 0 : 1
+        root.idleFrame = (root.clockStyle === "shy" || root.episodeName === "clock-retreat") ? 0 : 1
         root.action = "clockPeek"
+        if (root.clockStyle === "chase" && root.discoveryVisible)
+          root.discoveryVisible = false
       }
     }
     ParallelAnimation {
       NumberAnimation { target: root; property: "animalOpacity"; to: 1; duration: 300; easing.type: Easing.OutCubic }
       NumberAnimation { target: root; property: "petX"; to: root.passageLeftX - root.petWidth - 12; duration: 390; easing.type: Easing.OutCubic }
     }
-    PauseAnimation { duration: root.episodeName === "clock-retreat" ? 1180 : 850 }
+    PauseAnimation { duration: root.clockPeekHoldMs }
     SequentialAnimation {
-      loops: root.episodeName === "clock-retreat" ? 2 : 1
-      NumberAnimation { target: animal; property: "sniffRotation"; to: -4; duration: 100; easing.type: Easing.InOutSine }
-      NumberAnimation { target: animal; property: "sniffRotation"; to: 3; duration: 130; easing.type: Easing.InOutSine }
+      loops: Math.max(1, root.clockPeekLoops)
+      NumberAnimation { target: animal; property: "sniffRotation"; to: -5; duration: 100; easing.type: Easing.InOutSine }
+      NumberAnimation { target: animal; property: "sniffRotation"; to: 4; duration: 130; easing.type: Easing.InOutSine }
+      NumberAnimation { target: animal; property: "sniffRotation"; to: -2; duration: 90; easing.type: Easing.InOutSine }
     }
+    // Bold / chase: a second peek a little farther out.
+    PauseAnimation { duration: root.clockStyle === "bold" || root.clockStyle === "chase" ? 160 : 1 }
+    ScriptAction {
+      script: {
+        if (root.clockStyle === "bold" || root.clockStyle === "chase") {
+          root.action = "clockPeek"
+          animal.hopOffset = -1.8
+        } else if (root.clockStyle === "tumble") {
+          animal.sniffRotation = 8
+        }
+      }
+    }
+    PauseAnimation { duration: root.clockStyle === "bold" || root.clockStyle === "chase" ? 380 : (root.clockStyle === "tumble" ? 520 : 40) }
+    ScriptAction { script: { animal.hopOffset = 0; animal.sniffRotation = 0 } }
     ParallelAnimation {
       NumberAnimation { target: animal; property: "sniffRotation"; to: 0; duration: 120; easing.type: Easing.OutCubic }
       NumberAnimation { target: root; property: "animalOpacity"; to: 0; duration: 190; easing.type: Easing.InCubic }
@@ -1297,7 +1858,7 @@ Item {
     NumberAnimation { target: den; property: "rustleRotation"; to: 2.5; duration: 105; easing.type: Easing.InOutQuad }
     NumberAnimation { target: den; property: "rustleRotation"; to: -1.5; duration: 90; easing.type: Easing.InOutQuad }
     NumberAnimation { target: den; property: "rustleRotation"; to: 0; duration: 100; easing.type: Easing.OutQuad }
-    ScriptAction { script: root.beginEmergence() }
+    ScriptAction { script: root.beginEmergence(root.pendingInteractiveWake) }
   }
   SequentialAnimation {
     id: curiosityAnimation
@@ -1372,9 +1933,48 @@ Item {
     NumberAnimation { target: conceptPet; property: "breathScale"; to: 1; duration: 1850; easing.type: Easing.InOutSine }
   }
   SequentialAnimation {
-    id: discoveryPulse; running: root.discoveryVisible; loops: Animation.Infinite
-    NumberAnimation { target: discoveryMarker; property: "pulseScale"; to: 1.18; duration: 420; easing.type: Easing.InOutSine }
-    NumberAnimation { target: discoveryMarker; property: "pulseScale"; to: 1; duration: 520; easing.type: Easing.InOutSine }
+    id: toyIdleBounce
+    running: false
+    loops: Animation.Infinite
+    NumberAnimation {
+      target: root; property: "toyHop"
+      to: root.discoveryItem === "star" ? -4.2 : root.discoveryItem === "leaf" ? -3.6 : -2.4
+      duration: root.discoveryItem === "leaf" ? 340 : 260
+      easing.type: Easing.OutQuad
+    }
+    NumberAnimation {
+      target: root; property: "toyHop"; to: 0
+      duration: root.discoveryItem === "pebble" ? 280 : 340
+      easing.type: Easing.InQuad
+    }
+    PauseAnimation { duration: root.discoveryItem === "star" ? 90 : 180 }
+    ScriptAction { script: root.toySpin += root.discoveryItem === "leaf" ? 22 : root.discoveryItem === "star" ? 16 : 10 }
+  }
+  SequentialAnimation {
+    id: toyHopBounce
+    NumberAnimation {
+      target: root; property: "toyHop"
+      to: root.discoveryItem === "star" ? -7.0 : root.discoveryItem === "leaf" ? -5.0 : -4.2
+      duration: 110; easing.type: Easing.OutQuad
+    }
+    NumberAnimation {
+      target: root; property: "toyHop"; to: 0
+      duration: root.discoveryItem === "pebble" ? 200 : 170
+      easing.type: Easing.OutBounce
+    }
+  }
+  Timer {
+    id: toyPhysicsTimer
+    interval: 32
+    repeat: true
+    running: false
+    onTriggered: root.stepToyPhysics()
+  }
+  Timer {
+    id: toyCatchTimer
+    interval: 720
+    repeat: false
+    onTriggered: root.finishToyCatch()
   }
   ParallelAnimation {
     id: conceptTravel
@@ -1447,7 +2047,24 @@ Item {
       else root.reducedMotion = !root.reducedMotion
       root.saveState(); root.scheduleRoam()
     }
-    function journal(): void { root.panelOpen = !root.panelOpen }
+    function journal(): void {
+      if (root.panelOpen) root.close()
+      else root.openJournal()
+    }
+    function care(): void { root.openCare() }
+    function activity(level: string): void {
+      var wanted = String(level || "").toLowerCase()
+      if (wanted === "quiet" || wanted === "0") root.setActivityLevel(0)
+      else if (wanted === "lively" || wanted === "2") root.setActivityLevel(2)
+      else if (wanted === "normal" || wanted === "1") root.setActivityLevel(1)
+      else root.cycleActivity()
+    }
+    function curious(mode: string): void {
+      var wanted = String(mode || "").toLowerCase()
+      if (wanted === "on" || wanted === "true" || wanted === "1") root.setCuriousCursor(true)
+      else if (wanted === "off" || wanted === "false" || wanted === "0") root.setCuriousCursor(false)
+      else root.toggleCuriousCursor()
+    }
   }
 
   PanelWindow {
@@ -1461,15 +2078,17 @@ Item {
     mask: Region {
       x: Math.round(root.auditioning ? conceptPet.x : root.sleeping ? den.x : animal.x)
       y: Math.round(root.auditioning ? conceptPet.y : root.sleeping ? den.y : animal.y)
-      width: Math.round(root.auditioning ? conceptPet.width : root.sleeping ? den.width : animal.width)
-      height: Math.round(root.auditioning ? conceptPet.height : root.sleeping ? den.height : animal.height)
+      width: Math.round(root.auditioning ? conceptPet.width : root.sleeping ? den.width * den.scale : animal.width)
+      height: Math.round(root.auditioning ? conceptPet.height : root.sleeping ? den.height * den.scale : animal.height)
     }
 
     Item {
       id: den
       property real rustleRotation: 0
-      x: root.homeX
-      y: Math.round((habitat.height - height) / 2)
+      // Sleep sprites tuck smaller in-canvas — scale up so the nest reads on dark bars.
+      scale: root.sleeping && root.isPenguin ? 1.22 : 1
+      x: root.homeX - (scale > 1 ? root.petWidth * (scale - 1) * 0.5 : 0)
+      y: Math.round((habitat.height - height * scale) / 2)
       width: root.isPenguin ? root.petWidth : 38
       height: root.isPenguin ? root.petHeight : Math.min(28, habitat.height)
       z: 3
@@ -1487,13 +2106,17 @@ Item {
         smooth: false
         mipmap: false
         layer.enabled: true
-        layer.effect: MultiEffect { colorization: root.isPenguin ? 0.03 : root.isGecko ? 0.08 : 0.18; colorizationColor: Color.bar.text }
+        layer.effect: MultiEffect {
+          brightness: root.petBrightness
+          colorization: root.petColorization
+          colorizationColor: Color.bar.text
+        }
       }
       Text {
         id: sleepMarker
         x: parent.width - 7; y: 0
         visible: root.sleeping && root.isPenguin && root.deepSleeping && !root.rustling && root.homeStoryName === ""
-        text: "z"; color: Color.accent; font.pixelSize: 8; font.bold: true; z: 5
+        text: "z"; color: Color.accent; font.pixelSize: 11; font.bold: true; z: 5
         SequentialAnimation on opacity {
           running: sleepMarker.visible; loops: Animation.Infinite
           NumberAnimation { from: 0.35; to: 0.95; duration: 1250; easing.type: Easing.InOutSine }
@@ -1503,8 +2126,11 @@ Item {
       MouseArea {
         anchors.fill: parent
         enabled: root.sleeping && !root.rustling
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         onClicked: function(mouse) { root.handlePetClick(mouse.button) }
+        onContainsMouseChanged: root.onPetHover(containsMouse)
       }
     }
 
@@ -1535,19 +2161,57 @@ Item {
       }
     }
 
-    Text {
-      id: discoveryMarker
-      property real pulseScale: 1
+    Item {
+      id: discoveryToy
       x: root.discoveryX
-      y: Math.round((habitat.height - height) / 2 + 5)
+      y: Math.round((habitat.height - height) / 2 + 4 + root.toyHop)
+      width: 10
+      height: 10
       visible: root.discoveryVisible && !root.auditioning
-      text: root.discoveryGlyph
-      color: Color.accent
-      font.pixelSize: 8
-      font.bold: true
-      scale: pulseScale
-      opacity: 0.92
+      rotation: root.toySpin
+      opacity: 0.95
       z: 1
+      Behavior on x { enabled: root.discoveryVisible && !root.reducedMotion && Math.abs(root.toyVx) < 2.5; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+
+      // Pebble — little ball
+      Rectangle {
+        visible: root.discoveryItem === "pebble"
+        anchors.centerIn: parent
+        width: 8; height: 8; radius: 4
+        color: Color.accent
+        opacity: 0.95
+      }
+      // Leaf — tilted diamond
+      Rectangle {
+        visible: root.discoveryItem === "leaf"
+        anchors.centerIn: parent
+        width: 7; height: 7
+        rotation: 45
+        color: Color.accent
+        opacity: 0.92
+      }
+      // Star — accent spark with a smaller core
+      Item {
+        visible: root.discoveryItem === "star"
+        anchors.centerIn: parent
+        width: 10; height: 10
+        Rectangle {
+          anchors.centerIn: parent
+          width: 8; height: 2.2; radius: 1
+          color: Color.accent
+        }
+        Rectangle {
+          anchors.centerIn: parent
+          width: 2.2; height: 8; radius: 1
+          color: Color.accent
+        }
+        Rectangle {
+          anchors.centerIn: parent
+          width: 3.2; height: 3.2; radius: 1.6
+          color: Color.bar.text
+          opacity: 0.85
+        }
+      }
     }
 
     Text {
@@ -1577,7 +2241,7 @@ Item {
       property real sniffRotation: 0
       property real hopOffset: 0
       x: root.petX + root.storyPetOffset; y: Math.round((habitat.height - height) / 2 + sniffOffset + hopOffset)
-      width: root.petWidth; height: root.petHeight; rotation: sniffRotation; scale: breathScale
+      width: root.petWidth; height: root.petHeight; rotation: sniffRotation; scale: breathScale * root.slideVisualScale
       visible: !root.sleeping
       opacity: root.animalOpacity
       z: 2
@@ -1586,7 +2250,11 @@ Item {
       component PetImage: Image {
         anchors.fill: parent; fillMode: Image.PreserveAspectFit; smooth: false; mipmap: false; cache: true
         layer.enabled: true
-        layer.effect: MultiEffect { colorization: root.isPenguin ? 0.03 : root.isGecko ? 0.05 : 0.13; colorizationColor: Color.bar.text }
+        layer.effect: MultiEffect {
+          brightness: root.petBrightness
+          colorization: root.petColorization
+          colorizationColor: Color.bar.text
+        }
       }
       Repeater { model: 6; PetImage { required property int index; source: Qt.resolvedUrl(root.speciesBase + "walk/" + index + ".png"); visible: false } }
       Repeater { model: 8; PetImage { required property int index; source: Qt.resolvedUrl(root.speciesBase + "wake/" + index + ".png"); visible: false } }
@@ -1619,19 +2287,40 @@ Item {
           : root.walking ? Qt.resolvedUrl(root.speciesBase + "walk/" + root.walkFrame + ".png")
           : Qt.resolvedUrl(root.speciesBase + "idle.png")
       }
-      Text {
+      Item {
         visible: root.carriedItem !== "" && root.journeyPhase === "returning"
-        text: root.carriedGlyph
-        color: Color.accent
-        font.pixelSize: 8
-        font.bold: true
-        x: animal.width - 7
-        y: animal.height - 11
+        x: animal.width - 9
+        y: animal.height - 12
+        width: 8
+        height: 8
         z: 4
+        Rectangle {
+          visible: root.carriedItem === "pebble"
+          anchors.centerIn: parent
+          width: 6; height: 6; radius: 3
+          color: Color.accent
+        }
+        Rectangle {
+          visible: root.carriedItem === "leaf"
+          anchors.centerIn: parent
+          width: 5; height: 5; rotation: 45
+          color: Color.accent
+        }
+        Item {
+          visible: root.carriedItem === "star"
+          anchors.centerIn: parent
+          width: 8; height: 8
+          Rectangle { anchors.centerIn: parent; width: 7; height: 1.8; radius: 1; color: Color.accent }
+          Rectangle { anchors.centerIn: parent; width: 1.8; height: 7; radius: 1; color: Color.accent }
+        }
       }
       MouseArea {
-        anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         onClicked: function(mouse) { root.handlePetClick(mouse.button) }
+        onContainsMouseChanged: root.onPetHover(containsMouse)
       }
     }
 
@@ -1661,110 +2350,300 @@ Item {
       }
       MouseArea {
         anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         onClicked: function(mouse) { root.handlePetClick(mouse.button) }
+        onContainsMouseChanged: root.onPetHover(containsMouse)
       }
     }
+
   }
 
   PopupCard {
     id: journal
-    anchorItem: den
+    anchorItem: root.journalAnchor
     bar: root.bar
     owner: root
     open: root.panelOpen
-    contentWidth: 270
-    contentHeight: 252
+    contentWidth: fittedContentWidth(340)
+    contentHeight: fittedContentHeight(panelColumn.implicitHeight, 520)
 
     Column {
-      anchors.fill: parent
-      spacing: 7
+      id: panelColumn
+      width: parent.width
+      spacing: 10
+
       Row {
-        width: 246; height: 16
-        Text { id: journalTitle; text: "PEBBLE'S JOURNAL"; color: Color.accent; font.pixelSize: 13; font.bold: true }
-        Item { width: 246 - journalTitle.implicitWidth - localLabel.implicitWidth; height: 1 }
-        Text { id: localLabel; text: "LOCAL"; color: Color.bar.text; opacity: 0.58; font.pixelSize: 8; font.bold: true }
+        width: parent.width
+        Text {
+          id: panelTitle
+          text: "PEBBLE"
+          color: Color.accent
+          font.pixelSize: 15
+          font.bold: true
+        }
+        Item { width: Math.max(8, parent.width - panelTitle.implicitWidth - localBadge.implicitWidth); height: 1 }
+        Text {
+          id: localBadge
+          text: "LOCAL"
+          color: Color.bar.text
+          opacity: 0.55
+          font.pixelSize: 10
+          font.bold: true
+          anchors.verticalCenter: panelTitle.verticalCenter
+        }
       }
-      Rectangle { width: 246; height: 1; color: Color.accent; opacity: 0.58 }
+      Rectangle { width: parent.width; height: 1; color: Color.accent; opacity: 0.5 }
+
       Row {
-        spacing: 6
-        Rectangle { width: 5; height: 5; radius: 3; color: Color.accent; anchors.verticalCenter: parent.verticalCenter }
-        Text { text: "NOW"; color: Color.accent; font.pixelSize: 8; font.bold: true; anchors.verticalCenter: parent.verticalCenter }
-        Text { text: root.statusText; color: Color.bar.text; opacity: 0.86; font.pixelSize: 10; anchors.verticalCenter: parent.verticalCenter }
+        width: parent.width
+        spacing: 8
+        Rectangle {
+          width: 7; height: 7; radius: 4; color: Color.accent
+          anchors.verticalCenter: parent.verticalCenter
+        }
+        Text {
+          text: "NOW"
+          color: Color.accent
+          font.pixelSize: 10
+          font.bold: true
+          anchors.verticalCenter: parent.verticalCenter
+        }
+        Text {
+          width: Math.max(60, panelColumn.width - 56)
+          text: root.statusText
+          color: Color.bar.text
+          opacity: 0.92
+          font.pixelSize: 13
+          wrapMode: Text.WordWrap
+        }
       }
+
       Rectangle {
-        width: 246; height: 52; radius: 5; color: "transparent"
-        border.width: 1; border.color: Color.accent
-        Rectangle { anchors.fill: parent; anchors.margins: 1; radius: 4; color: Color.bar.text; opacity: 0.12 }
+        width: parent.width
+        height: momentLabel.height + momentBody.height + 22
+        radius: 7
+        color: "transparent"
+        border.width: 1
+        border.color: Color.accent
+        Rectangle { anchors.fill: parent; anchors.margins: 1; radius: 6; color: Color.bar.text; opacity: 0.10 }
         Rectangle { x: 0; y: 0; width: 3; height: parent.height; radius: 2; color: Color.accent }
         Text {
-          x: 11; y: 5; text: "LATEST MOMENT"
-          color: Color.accent; font.pixelSize: 8; font.bold: true
+          id: momentLabel
+          x: 14; y: 10
+          text: "LATEST MOMENT"
+          color: Color.accent
+          font.pixelSize: 10
+          font.bold: true
         }
         Text {
-          x: 11; y: 17; width: 226; height: 30
+          id: momentBody
+          x: 14
+          y: momentLabel.y + momentLabel.height + 6
+          width: parent.width - 28
           text: root.recentEvent
-          color: Color.bar.text; opacity: 1; font.pixelSize: 10; font.bold: true
-          wrapMode: Text.WordWrap; verticalAlignment: Text.AlignVCenter
+          color: Color.bar.text
+          font.pixelSize: 13
+          font.bold: true
+          wrapMode: Text.WordWrap
         }
       }
-      Row {
-        spacing: 5
-        Rectangle { width: 3; height: 9; color: Color.accent; anchors.verticalCenter: parent.verticalCenter }
-        Text { text: "MEMORIES  ·  " + root.bondName.toUpperCase(); color: Color.bar.text; opacity: 0.82; font.pixelSize: 9; font.bold: true }
-      }
-      Text {
-        text: "● " + root.pebblesFound + " pebbles     ◆ " + root.leavesFound + " leaves     ✦ " + root.starsFound + " stars"
-        color: Color.accent; font.pixelSize: 10; font.bold: true
-      }
-      Text {
-        text: root.outings + " outings   ·   " + root.clockPassages + " passages   ·   " + root.totalPokes + " pokes"
-        color: Color.bar.text; opacity: 0.68; font.pixelSize: 9
-      }
+
       Row {
         spacing: 8
         Rectangle {
-          width: 116; height: 30; radius: 6
+          width: Math.floor((panelColumn.width - 8) / 2)
+          height: 34
+          radius: 7
           color: "transparent"
-          border.width: 1; border.color: Color.accent
+          border.width: 1
+          border.color: Color.accent
           Rectangle {
-            anchors.fill: parent; anchors.margins: 1; radius: 5
+            anchors.fill: parent; anchors.margins: 1; radius: 6
             color: Color.accent
-            opacity: primaryMouse.containsMouse ? 0.34 : 0.22
+            opacity: primaryAct.containsMouse ? 0.36 : 0.24
           }
-          Text { anchors.centerIn: parent; text: root.sleeping ? "Explore" : "Go home"; color: Color.bar.text; font.pixelSize: 10; font.bold: true }
+          Text {
+            anchors.centerIn: parent
+            text: root.sleeping ? "Explore" : "Go home"
+            color: Color.bar.text
+            font.pixelSize: 13
+            font.bold: true
+          }
           MouseArea {
-            id: primaryMouse; anchors.fill: parent; hoverEnabled: true
+            id: primaryAct
+            anchors.fill: parent
+            hoverEnabled: true
             onClicked: {
               if (root.sleeping) root.inviteExplore()
-              else { root.panelOpen = false; root.goToSleep() }
+              else root.goHomeGracefully()
             }
           }
         }
         Rectangle {
-          width: 122; height: 30; radius: 6
+          width: Math.ceil((panelColumn.width - 8) / 2)
+          height: 34
+          radius: 7
           color: "transparent"
-          border.width: snoozeMouse.containsMouse ? 1 : 0; border.color: Color.accent
-          Rectangle { anchors.fill: parent; radius: parent.radius; color: snoozeMouse.containsMouse ? Color.accent : Color.bar.text; opacity: snoozeMouse.containsMouse ? 0.30 : 0.13 }
-          Text { anchors.centerIn: parent; text: root.snoozed ? "Wake now" : "Snooze 1h"; color: Color.bar.text; font.pixelSize: 10 }
-          MouseArea { id: snoozeMouse; anchors.fill: parent; hoverEnabled: true; onClicked: root.toggleSnooze() }
+          border.width: snoozeAct.containsMouse || root.snoozed ? 1 : 0
+          border.color: Color.accent
+          Rectangle {
+            anchors.fill: parent
+            radius: parent.radius
+            color: snoozeAct.containsMouse || root.snoozed ? Color.accent : Color.bar.text
+            opacity: snoozeAct.containsMouse || root.snoozed ? 0.30 : 0.12
+          }
+          Text {
+            anchors.centerIn: parent
+            text: root.snoozed ? "Wake now" : "Snooze 1h"
+            color: Color.bar.text
+            font.pixelSize: 13
+          }
+          MouseArea {
+            id: snoozeAct
+            anchors.fill: parent
+            hoverEnabled: true
+            onClicked: root.toggleSnooze()
+          }
         }
       }
+
+      Text {
+        text: "ENERGY"
+        color: Color.accent
+        font.pixelSize: 10
+        font.bold: true
+      }
+      Row {
+        spacing: 6
+        Repeater {
+          model: [
+            { label: "Quiet", level: 0 },
+            { label: "Normal", level: 1 },
+            { label: "Lively", level: 2 }
+          ]
+          delegate: Rectangle {
+            required property var modelData
+            width: Math.floor((panelColumn.width - 12) / 3)
+            height: 30
+            radius: 6
+            color: "transparent"
+            border.width: 1
+            border.color: Color.accent
+            opacity: root.activityLevel === modelData.level ? 1 : 0.55
+            Rectangle {
+              anchors.fill: parent; anchors.margins: 1; radius: 5
+              color: Color.accent
+              opacity: root.activityLevel === modelData.level ? 0.32 : (energyMouse.containsMouse ? 0.16 : 0.06)
+            }
+            Text {
+              anchors.centerIn: parent
+              text: modelData.label
+              color: Color.bar.text
+              font.pixelSize: 12
+              font.bold: root.activityLevel === modelData.level
+            }
+            MouseArea {
+              id: energyMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              onClicked: { root.acknowledgeIntro(); root.setActivityLevel(modelData.level) }
+            }
+          }
+        }
+      }
+
       Row {
         spacing: 8
         Rectangle {
-          width: 119; height: 24; radius: 5; color: "transparent"
-          border.width: activityMouse.containsMouse ? 1 : 0; border.color: Color.accent
-          Rectangle { anchors.fill: parent; radius: parent.radius; color: activityMouse.containsMouse ? Color.accent : Color.bar.text; opacity: activityMouse.containsMouse ? 0.18 : 0.07 }
-          Text { anchors.centerIn: parent; text: "Activity · " + root.activityName; color: Color.bar.text; opacity: 0.76; font.pixelSize: 9 }
-          MouseArea { id: activityMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { root.acknowledgeIntro(); root.cycleActivity() } }
+          width: Math.floor((panelColumn.width - 8) / 2)
+          height: 30
+          radius: 6
+          color: "transparent"
+          border.width: 1
+          border.color: Color.accent
+          Rectangle {
+            anchors.fill: parent; anchors.margins: 1; radius: 5
+            color: Color.accent
+            opacity: root.curiousCursor ? 0.30 : (curiousAct.containsMouse ? 0.16 : 0.06)
+          }
+          Text {
+            anchors.centerIn: parent
+            text: "Curious · " + root.curiousCursorName
+            color: Color.bar.text
+            font.pixelSize: 12
+            font.bold: true
+          }
+          MouseArea {
+            id: curiousAct
+            anchors.fill: parent
+            hoverEnabled: true
+            onClicked: { root.acknowledgeIntro(); root.toggleCuriousCursor() }
+          }
         }
         Rectangle {
-          width: 119; height: 24; radius: 5; color: "transparent"
-          border.width: motionMouse.containsMouse || root.reducedMotion ? 1 : 0; border.color: Color.accent
-          Rectangle { anchors.fill: parent; radius: parent.radius; color: motionMouse.containsMouse ? Color.accent : Color.bar.text; opacity: motionMouse.containsMouse ? 0.18 : 0.07 }
-          Text { anchors.centerIn: parent; text: "Motion · " + root.motionName; color: Color.bar.text; opacity: 0.76; font.pixelSize: 9 }
-          MouseArea { id: motionMouse; anchors.fill: parent; hoverEnabled: true; onClicked: { root.acknowledgeIntro(); root.toggleReducedMotion() } }
+          width: Math.ceil((panelColumn.width - 8) / 2)
+          height: 30
+          radius: 6
+          color: "transparent"
+          border.width: calmAct.containsMouse || root.reducedMotion ? 1 : 0
+          border.color: Color.accent
+          Rectangle {
+            anchors.fill: parent
+            radius: parent.radius
+            color: root.reducedMotion || calmAct.containsMouse ? Color.accent : Color.bar.text
+            opacity: root.reducedMotion ? 0.28 : (calmAct.containsMouse ? 0.16 : 0.08)
+          }
+          Text {
+            anchors.centerIn: parent
+            text: root.reducedMotion ? "Calm motion" : "Full motion"
+            color: Color.bar.text
+            opacity: 0.88
+            font.pixelSize: 12
+          }
+          MouseArea {
+            id: calmAct
+            anchors.fill: parent
+            hoverEnabled: true
+            onClicked: { root.acknowledgeIntro(); root.toggleReducedMotion() }
+          }
+        }
+      }
+
+      Text {
+        width: parent.width
+        text: root.bondName + "  ·  ● " + root.pebblesFound + "  ◆ " + root.leavesFound + "  ✦ " + root.starsFound
+        color: Color.bar.text
+        opacity: 0.72
+        font.pixelSize: 12
+        wrapMode: Text.WordWrap
+      }
+
+      Rectangle {
+        width: parent.width
+        height: 32
+        radius: 7
+        color: "transparent"
+        border.width: closeAct.containsMouse ? 1 : 0
+        border.color: Color.accent
+        Rectangle {
+          anchors.fill: parent
+          radius: parent.radius
+          color: closeAct.containsMouse ? Color.accent : Color.bar.text
+          opacity: closeAct.containsMouse ? 0.26 : 0.10
+        }
+        Text {
+          anchors.centerIn: parent
+          text: "Close"
+          color: Color.bar.text
+          font.pixelSize: 13
+        }
+        MouseArea {
+          id: closeAct
+          anchors.fill: parent
+          hoverEnabled: true
+          onClicked: root.close()
         }
       }
     }

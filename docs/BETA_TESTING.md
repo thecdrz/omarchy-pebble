@@ -9,10 +9,22 @@ feature on the first day; the test is whether its life unfolds naturally.
 2. Which behavior delighted you, and which became repetitive?
 3. Did Pebble ever face the wrong way, change apparent size, jump position, or
    collide awkwardly with bar widgets?
-4. Was the journal understandable at a glance?
-5. Did Quiet, Normal, Lively, Snooze, and Reduced Motion behave as expected?
-6. Did Pebble interfere with clicking, fullscreen applications, or work?
-7. Would you leave it enabled permanently? Why or why not?
+4. Was the PEBBLE panel readable at a glance (no cut-off controls)?
+5. Did Quiet / Normal / Lively, Snooze, Calm motion, and Curious cursor behave as expected?
+6. With Curious on, did Pebble react only along the bar (never across the desktop)? Did he wake/come toward a nearby pointer while sleeping?
+7. Did finds feel playful (roll/bounce/fumble) rather than like static icons?
+8. Did clock moments vary (peek / chase / tumble) without vanishing mid-bar?
+9. Did Pebble interfere with clicking, fullscreen applications, or work?
+10. Would you leave it enabled permanently? Why or why not?
+
+## Soak checklist (24h)
+
+- [ ] Left enabled overnight and through a normal work day
+- [ ] No shell restart attributed to Pebble; no repeated QML errors
+- [ ] Curious on for at least half the soak; off for a stretch to compare
+- [ ] Multi-monitor or scale change exercised if available
+- [ ] At least one clock episode and one toy find observed
+- [ ] State file `~/.local/state/omarchy/pebble/state.json` still under 64 KiB
 
 ## Test matrix
 

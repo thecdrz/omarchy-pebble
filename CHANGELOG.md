@@ -2,9 +2,26 @@
 
 All notable changes to Pebble are documented here.
 
-## [Unreleased]
+## [0.23.0] - 2026-08-23
 
 ### Added
+
+- Hover presence: hand cursor and light stir / look reactions on Pebble (no on-bar tip text).
+- **Curious cursor** on by default: bar-local pointer awareness so Pebble can look, scoot, chase, or flee along the bar; sleeping Pebble can wake and walk toward a nearby pointer.
+- Single flat **PEBBLE** panel (story + Explore/home, snooze, Quiet/Normal/Lively, Curious, Calm motion) instead of a Journal → Care drill-down; popup sizes from content and anchors to the active sprite.
+- Interactive finds: pebbles, leaves, and stars roll/bounce with velocity, edge rebound, grab fumbles, and occasional clock escapes that become chase episodes.
+- Clock as a stage: shy / bold peeks, toy-chase behind the clock, and rare tumble-out slips.
+- Deeper home moments weighted by bond and collection size, with occasional memory notes.
+- IPC helpers for `care`, `activity`, and `curious`.
+- Bar-local cursor helper `bin/pebble-cursor` and real-bar marketplace screenshots under `docs/media/discord/`.
+
+### Changed
+
+- Sleeping silhouette reads larger/brighter on dark bars; mid belly-slide frames no longer balloon.
+- Go home / middle-click walk home when out instead of teleporting into the nest.
+- Removed tiny poke telegraph tips beside the sprite.
+
+### Added (prior)
 
 - Bounded eight-episode history, per-story counts, repeat-avoidance metrics, and a persistent relationship stage.
 - Privacy-safe ambient reactions to time and occasional workspace changes.

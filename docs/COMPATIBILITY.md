@@ -17,7 +17,8 @@ release requires every physical row to be exercised on real hardware.
 | Ultrawide display | geometry | no | pending |
 | Bar heights 24–48 px | asset bounds | no | pending |
 
-Physical checks must cover focused-monitor handoff, click masks, journal anchoring,
+Physical checks must cover focused-monitor handoff, click masks, Journal/Care
+anchoring to the active sprite, Curious cursor bar-band sensing (when enabled),
 clock-passage geometry, fullscreen stacking, and absence of apparent sprite-scale
 changes. Record hardware, scale, bar position, and result in the beta report.
 

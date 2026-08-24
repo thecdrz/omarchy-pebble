@@ -24,6 +24,7 @@ done
 
 rg -q 'version: 9' Companion.qml
 rg -q 'reducedMotion' Companion.qml
+rg -q 'curiousCursor' Companion.qml
 rg -q 'recentEpisodes' Companion.qml
 rg -q 'stateMaxBytes: 65536' Companion.qml
 rg -q 'iflag=nofollow,nonblock' Companion.qml
@@ -32,5 +33,9 @@ rg -q 'timeout --foreground 1s dd' Companion.qml
 rg -q 'mktemp --tmpdir=' Companion.qml
 rg -q 'mv -fT --' Companion.qml
 rg -q 'omarchy plugin remove io.github.thecdrz.pebble' README.md
+rg -q 'Curious cursor' PRIVACY.md
 
+[[ -s docs/media/discord/01-pebble-at-home.png ]]
+[[ -s docs/media/discord/02-pebble-slip.png ]]
+[[ -s docs/media/discord/03-pebble-journal.png ]]
 echo "Release validation passed: manifest, assets, state contract, docs, and plugin structure."

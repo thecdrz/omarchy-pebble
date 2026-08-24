@@ -9,9 +9,10 @@ The word “best” is earned by evidence, not feature count.
 - [x] Runtime-order animation reels can be regenerated for visual review.
 - [x] Manifest and repository structure validate with Omarchy.
 - [x] Persistent history and counters are bounded and sanitized.
-- [x] No runtime network request, analytics, or global input monitoring.
+- [x] No runtime network request, analytics, or global input monitoring (Curious cursor is bar-local only).
 - [x] Install, update, remove, backup, and reset behavior are documented.
-- [ ] A 24-hour soak completes with no Pebble errors or shell restart.
+- [x] Flat PEBBLE panel, toy physics, and staged clock episodes documented for beta.
+- [ ] A 24-hour soak completes with no Pebble errors or shell restart (see `docs/BETA_TESTING.md`).
 - [ ] Idle CPU and memory stay within the release budget on that soak.
 
 ## Human gates
@@ -29,16 +30,16 @@ The word “best” is earned by evidence, not feature count.
 - State file remains below 64 KiB.
 - Resident-memory growth attributable to the shell remains below 20 MiB over the soak.
 - Pebble introduces no continuously running helper process.
+- Curious cursor polling (when enabled) stays on a low-frequency hyprctl read and must not open a long-lived helper.
 
 ## Competitive scorecard
 
 | Dimension | Pebble target |
 |---|---|
 | Ambient life | autonomous, calm, and legible from the bar |
-| Reactivity | direct interaction plus privacy-safe time/workspace context |
+| Reactivity | hover + clicks + bar-local curious cursor (on by default); privacy-safe time/workspace context |
 | Long-term depth | collections, bounded history, bond, callbacks, rare stories |
-| Control | Quiet/Normal/Lively, Snooze, Reduced Motion, immediate return home |
-| Trust | local state, no network, no global input, documented data contract |
-| Polish | stable silhouette, correct direction, smooth transitions, native theme fit |
+| Control | Quiet/Normal/Lively (segmented), Snooze, Calm motion, Curious cursor, walk-home |
+| Trust | local state, no network, no global desktop input, documented data contract |
+| Polish | stable silhouette, correct direction, smooth transitions, native theme fit, flat PEBBLE panel |
 | Reliability | validated package, migrations, soak budget, display matrix |
-

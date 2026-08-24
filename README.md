@@ -12,20 +12,21 @@ curious, slightly clumsy, calm when ignored, and entirely local.
 - Sleeps, stretches, preens, slips, belly-slides, and occasionally gets curious.
 - Finds leaves, pebbles, and stars, then carries them home to remember.
 - Remembers recent special activities locally so it can vary what happens next.
-- Responds to clicks, right-click journal controls, and a one-hour snooze.
-- Offers Quiet, Normal, Lively, and Reduced Motion modes.
+- Responds to hover, clicks, a split Journal / Care panel, and a one-hour snooze.
+- Offers Quiet, Normal, Lively, Reduced Motion, and optional Curious cursor modes.
 - Adapts to the active monitor and pauses safely when the bar is hidden.
-- Uses no network, analytics, global input monitoring, or cloud account.
+- Uses no network, analytics, global desktop input monitoring, or cloud account.
 
 ## Interaction
 
-- When Pebble is sleeping, left-click him to wake him.
-- While Pebble is awake, left-click him for a small hop and head tilt.
-- Poke him again shortly after waking to queue a belly slide when Reduced Motion is off.
-- Right-click Pebble—sleeping or awake—to open the local journal.
-- Middle-click Pebble to send him home.
-- Use **Snooze 1h** in the journal to pause autonomous outings; left-click Pebble to wake him early.
-- Use **Motion · Reduced** to suppress dramatic autonomous antics and continuous breathing animation.
+- Hover Pebble for a hand cursor and a small stir or look.
+- When Pebble is sleeping, left-click him to wake him — or bring the pointer near him on the bar with Curious on.
+- While Pebble is awake, left-click him for hops, slides, slips, and other small antics (chains still unlock belly slide / clock hide).
+- Right-click Pebble—sleeping or awake—to open the local **PEBBLE** panel: latest moment, Explore / Go home, Snooze, Energy, Curious, and Calm motion.
+- Middle-click Pebble to send him walking home.
+- **Curious** is on by default (bar-local only; turn off anytime) so Pebble may look, scoot, chase, or flee **only while the pointer travels along the bar**.
+- Use **Snooze 1h** to pause autonomous outings; left-click Pebble to wake him early.
+- Use **Calm motion** to suppress dramatic autonomous antics and continuous breathing animation.
 
 ## See Pebble in motion
 
@@ -41,6 +42,12 @@ easy to inspect on GitHub.
 |---|---|
 | ![Pebble belly slide](docs/media/pebble-belly-slide.gif) | ![Pebble slip and recover](docs/media/pebble-slip.gif) |
 
+### On a real bar
+
+| At home | Slip | Journal |
+|---|---|---|
+| ![Pebble at home](docs/media/discord/01-pebble-at-home.png) | ![Pebble slip](docs/media/discord/02-pebble-slip.png) | ![Pebble journal](docs/media/discord/03-pebble-journal.png) |
+
 The complete frame sheet is available at
 [`docs/media/pebble-animation-sheet.png`](docs/media/pebble-animation-sheet.png).
 Regenerate the review reels with:
@@ -52,12 +59,12 @@ tools/render-animation-reels.sh /tmp/pebble-animation-reels
 Journal state is stored at
 `~/.local/state/omarchy/pebble/state.json`. It never leaves the machine.
 
-The journal shows Pebble's current status, latest moment, collected objects,
-outing totals, activity level, motion setting, and snooze control.
+The panel shows status, latest moment, bond/collections, and care controls in one
+card — no nested pages.
 
 On a new installation, Pebble's first journal note explains that it explores the
 entire bar, rests near the center widgets, and remembers discoveries. There is no
-forced tutorial or automatic popup.
+forced tutorial popup.
 
 ## Compatibility
 
