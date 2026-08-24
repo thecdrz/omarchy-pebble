@@ -25,10 +25,4 @@ When the sampler exits cleanly, paste the final line of `soak-0.23.0.log` here.
 
 ## Marketplace screenshots
 
-Real-bar stills for listing and README (refreshed Aug 2026 for 0.23 panel):
-
-- `docs/media/discord/01-pebble-at-home.png` — Quiet at the nest
-- `docs/media/discord/02-pebble-slip.png` — mid-slip
-- `docs/media/discord/03-pebble-journal.png` — flat PEBBLE panel
-
-Regenerate: `tools/capture-marketplace-screenshots.sh`
+- `docs/media/discord/pebble-panel.png` — flat PEBBLE panel (0.23)

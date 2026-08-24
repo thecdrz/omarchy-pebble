@@ -45,11 +45,9 @@ easy to inspect on GitHub.
 
 ### On a real bar
 
-Real-bar stills (Aug 2026, 0.23 panel). Regenerate with `tools/capture-marketplace-screenshots.sh` while Omarchy shell is running.
+![PEBBLE panel](docs/media/discord/pebble-panel.png)
 
-| At home (Quiet) | Slip | PEBBLE panel |
-|---|---|---|
-| ![Pebble at home](docs/media/discord/01-pebble-at-home.png) | ![Pebble slip](docs/media/discord/02-pebble-slip.png) | ![Pebble panel](docs/media/discord/03-pebble-journal.png) |
+The flat **PEBBLE** panel: Quiet / Normal / Lively, Curious cursor, and Calm motion in one card.
 
 The complete frame sheet is available at
 [`docs/media/pebble-animation-sheet.png`](docs/media/pebble-animation-sheet.png).
@@ -100,6 +98,8 @@ tools/validate-release.sh
 Marketplace stills (local capture only — does not publish):
 
 ```sh
+# Prefer a clean manual grim crop of the PEBBLE panel → docs/media/discord/pebble-panel.png
+# Optional helper (crop constants are layout-sensitive):
 tools/capture-marketplace-screenshots.sh
 ```
 

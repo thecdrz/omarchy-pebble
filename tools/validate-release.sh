@@ -38,7 +38,5 @@ rg -q 'PEBBLE_DEV' Companion.qml
 rg -q 'omarchy plugin remove io.github.thecdrz.pebble' README.md
 rg -q 'Curious cursor' PRIVACY.md
 
-[[ -s docs/media/discord/01-pebble-at-home.png ]]
-[[ -s docs/media/discord/02-pebble-slip.png ]]
-[[ -s docs/media/discord/03-pebble-journal.png ]]
+[[ -s docs/media/discord/pebble-panel.png ]]
 echo "Release validation passed: manifest, assets, state contract, docs, and plugin structure."
