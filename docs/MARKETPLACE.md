@@ -36,7 +36,8 @@ Prefer a clean manual crop over the automated helper — `tools/capture-marketpl
 - [x] `manifest.json` version and description match 0.23
 - [x] `pebble-panel.png` shows the current PEBBLE panel
 - [x] GitHub release `v0.23.0` tagged
-- [ ] **Maintainer green-light** for Omarchy marketplace publish
+- [x] **Maintainer green-light** for Omarchy marketplace publish
+- [x] Submitted update: [marketplace issue #2015](https://github.com/HANCORE-linux/omarchy-plugin-marketplace/issues/2015) (2026-08-24)
 - [ ] Install smoke-test from `omarchy plugin add … --enable` on a clean profile (optional)
 
 ## After marketplace publish
