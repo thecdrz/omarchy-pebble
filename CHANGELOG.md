@@ -11,13 +11,22 @@ All notable changes to Pebble are documented here.
 - Single flat **PEBBLE** panel (story + Explore/home, snooze, Quiet/Normal/Lively, Curious, Calm motion) instead of a Journal → Care drill-down; popup sizes from content and anchors to the active sprite.
 - Interactive finds: pebbles, leaves, and stars roll/bounce with velocity, edge rebound, grab fumbles, and occasional clock escapes that become chase episodes.
 - Clock as a stage: shy / bold peeks, toy-chase behind the clock, and rare tumble-out slips.
+- Lively-only circus stunts: **flame gate**, **parade leaf**, **sumo pebble**, **cannon**, **rain umbrella**, **fishing**, **sneeze**, and **zoomies** — see [`docs/ROADMAP.md`](docs/ROADMAP.md). Tightrope removed.
+- **Dev triggers** panel section to fire animations on demand (stays open between taps).
+- Fixed-contrast spectacle props (bar-lane cannon tube, flame gate, toy pebble) for dark and light bars.
+- Authored bar-lane prop sprite pipeline: `tools/render-props.py` → `assets/props/*.png` → `PropArt.qml`.
 - Deeper home moments weighted by bond and collection size, with occasional memory notes.
 - IPC helpers for `care`, `activity`, and `curious`.
 - Bar-local cursor helper `bin/pebble-cursor` and real-bar marketplace screenshots under `docs/media/discord/`.
 
 ### Changed
 
+- Cannon and flame gate stunts redesigned for the bar lane only — horizontal tube launch and a low gate with an open center (no props above/below the penguin).
+- Spectacle staging stays inside an icon-safe open lane (far left/right tray zones avoided); fishing is a mid-lane puddle cast, not a bar-end cast.
+- Story props are authored pixel sprites (`PropArt.qml`, `assets/props/`, `tools/render-props.py`) — classic side-view cannon, fishing rod, rain drops, parade flag/hat.
+- Magic clock exit: bang vanish, wrong-side peek, reappear (Lively rare + Dev trigger).
 - Sleeping silhouette reads larger/brighter on dark bars; mid belly-slide frames no longer balloon.
+- Curious chase now follows Energy: Quiet looks only, Normal mild scoots, Lively nest-wake and chase. Defaults remain Normal + Curious on + Full motion.
 - Go home / middle-click walk home when out instead of teleporting into the nest.
 - Removed tiny poke telegraph tips beside the sprite.
 

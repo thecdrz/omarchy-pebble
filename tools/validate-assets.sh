@@ -126,4 +126,26 @@ if (( failures > 0 )); then
   echo "$failures asset validation failure(s)" >&2
   exit 1
 fi
-echo "Asset validation passed: intact silhouettes, stable scale, safe canvas margins."
+
+props_dir="$root_dir/assets/props"
+props_manifest="$props_dir/README.txt"
+if [[ ! -s "$props_manifest" ]]; then
+  echo "FAIL $props_manifest: missing prop manifest (run tools/render-props.py)" >&2
+  exit 1
+fi
+while read -r name size; do
+  [[ -n "$name" && "$name" == *.png ]] || continue
+  file="$props_dir/$name"
+  [[ -f "$file" ]] || { echo "FAIL $file: missing prop sprite" >&2; failures=$((failures + 1)); continue; }
+  dimensions="$(identify -format '%wx%h' "$file")"
+  [[ "$dimensions" == "$size" ]] || {
+    echo "FAIL $file: expected $size, got $dimensions (regenerate with tools/render-props.py)" >&2
+    failures=$((failures + 1))
+  }
+done < <(grep '\.png ' "$props_manifest")
+
+if (( failures > 0 )); then
+  echo "$failures asset validation failure(s)" >&2
+  exit 1
+fi
+echo "Asset validation passed: intact silhouettes, stable scale, safe canvas margins, prop sprites."

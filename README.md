@@ -12,7 +12,7 @@ curious, slightly clumsy, calm when ignored, and entirely local.
 - Sleeps, stretches, preens, slips, belly-slides, and occasionally gets curious.
 - Finds leaves, pebbles, and stars, then carries them home to remember.
 - Remembers recent special activities locally so it can vary what happens next.
-- Responds to hover, clicks, a split Journal / Care panel, and a one-hour snooze.
+- Responds to hover, clicks, a local PEBBLE panel, and a one-hour snooze.
 - Offers Quiet, Normal, Lively, Reduced Motion, and optional Curious cursor modes.
 - Adapts to the active monitor and pauses safely when the bar is hidden.
 - Uses no network, analytics, global desktop input monitoring, or cloud account.
@@ -20,13 +20,13 @@ curious, slightly clumsy, calm when ignored, and entirely local.
 ## Interaction
 
 - Hover Pebble for a hand cursor and a small stir or look.
-- When Pebble is sleeping, left-click him to wake him — or bring the pointer near him on the bar with Curious on.
+- When Pebble is sleeping, left-click him to wake him. On **Lively** with Curious on, bringing the pointer near the nest can also wake him.
 - While Pebble is awake, left-click him for hops, slides, slips, and other small antics (chains still unlock belly slide / clock hide).
 - Right-click Pebble—sleeping or awake—to open the local **PEBBLE** panel: latest moment, Explore / Go home, Snooze, Energy, Curious, and Calm motion.
 - Middle-click Pebble to send him walking home.
-- **Curious** is on by default (bar-local only; turn off anytime) so Pebble may look, scoot, chase, or flee **only while the pointer travels along the bar**.
+- Defaults sit in the middle: **Normal** energy, **Full** motion, **Curious on**. Curious is bar-local only. Quiet looks/rustles without chasing; Normal scoots mildly; Lively will chase, flee, and wake from the nest.
 - Use **Snooze 1h** to pause autonomous outings; left-click Pebble to wake him early.
-- Use **Calm motion** to suppress dramatic autonomous antics and continuous breathing animation.
+- Use **Calm motion** to suppress dramatic autonomous antics and continuous breathing animation. Circus stunts stay **Lively** and never run under Calm.
 
 ## See Pebble in motion
 
@@ -102,7 +102,9 @@ rm ~/.local/state/omarchy/pebble/state.json
 ```
 
 Pebble's complete data contract is documented in [`PRIVACY.md`](PRIVACY.md),
-and artwork provenance is recorded in [`ASSET_LICENSES.md`](ASSET_LICENSES.md).
+artwork provenance in [`ASSET_LICENSES.md`](ASSET_LICENSES.md), and the forward
+plan (Lively spectacle, second resident, optional OS ambient) in
+[`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## License
 

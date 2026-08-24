@@ -4,6 +4,7 @@ set -euo pipefail
 root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root_dir"
 
+python3 tools/render-props.py >/dev/null
 tools/validate-assets.sh
 tools/validate-roster.sh
 omarchy plugin validate .

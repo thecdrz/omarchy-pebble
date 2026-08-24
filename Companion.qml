@@ -6,6 +6,7 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
+import "."
 
 Item {
   id: root
@@ -93,15 +94,39 @@ Item {
   property string storyQueued: ""
   property string storyName: ""
   property int storyStage: 0
-  property string storyPropGlyph: ""
+  property string storyPropKind: ""
   property real storyPropX: 0
   property real storyPropY: 0
   property real storyPropOpacity: 0
   property real storyPropScale: 1
   property real storyPropRotation: 0
+  property string headPropKind: ""
+  property real headPropRotation: 0
+  property real headPropScale: 1
+  readonly property int cannonSpriteW: 29
+  readonly property int cannonSpriteH: 16
+  readonly property real cannonArtScale: Math.min(1.32, (root.petHeight / cannonSpriteH) * 0.93)
+  readonly property bool petRenderLayer: !(cannonVisible && storyName === "cannon")
   property real storyPetOffset: 0
-  property string homeStoryName: ""
+  property bool hoopVisible: false
+  property real hoopX: 0
+  property real hoopY: 0
+  property real hoopOpacity: 0
+  property real hoopScale: 1
+  property bool hoopSuccess: true
+  property bool sumoWin: true
+  property bool cannonStick: true
+  property bool cannonVisible: false
+  property real cannonX: 0
+  property real cannonY: 0
+  property real cannonOpacity: 0
+  property real cannonScale: 1
+  property bool cannonFlash: false
+  property real hoopGlow: 0
+  property real hoopGateWidth: 28
+  property bool storyPetInFront: false
   property int homeStoryStage: 0
+  property string homeStoryName: ""
   property int homePoseFrame: 0
   property bool deepSleeping: false
   property int outingActsRemaining: 0
@@ -126,6 +151,32 @@ Item {
   property bool stateDirReady: false
   property bool stateReady: false
   property bool panelOpen: false
+  property bool devPanelOpen: false
+  readonly property var devTriggers: [
+    { id: "slip", label: "Slip" },
+    { id: "slide", label: "Slide" },
+    { id: "clock", label: "Peek" },
+    { id: "magic", label: "Magic" },
+    { id: "retreat", label: "Hide" },
+    { id: "discover", label: "Toy drop" },
+    { id: "fire-hoop", label: "Flame gate" },
+    { id: "cannon", label: "Cannon" },
+        { id: "parade-leaf", label: "Parade" },
+    { id: "sumo-pebble", label: "Sumo" },
+    { id: "rain-umbrella", label: "Umbrella" },
+    { id: "fishing", label: "Fish" },
+    { id: "sneeze", label: "Sneeze" },
+    { id: "zoomies", label: "Zoomies" },
+    { id: "firefly", label: "Firefly" },
+    { id: "stretch", label: "Stretch" },
+    { id: "edge-watch", label: "Edge" },
+    { id: "listen", label: "Listen" },
+    { id: "stargaze", label: "Stars" },
+    { id: "leaf-toss", label: "Leaf toss" },
+    { id: "polish", label: "Polish" },
+    { id: "lost-pebble", label: "Runaway" },
+    { id: "collection-sort", label: "Sort" }
+  ]
   property bool snoozed: false
   property double snoozeUntil: 0
   property int activityLevel: 1
@@ -175,8 +226,7 @@ Item {
   property string lastDirectedEpisode: ""
   property double lastDirectedEpisodeAt: 0
   property string carriedItem: ""
-  readonly property string carriedGlyph: carriedItem === "leaf" ? "◆" : carriedItem === "pebble" ? "●" : carriedItem === "star" ? "✦" : ""
-  readonly property string discoveryGlyph: discoveryItem === "leaf" ? "◆" : discoveryItem === "pebble" ? "●" : discoveryItem === "star" ? "✦" : ""
+  // Bar-lane props are authored PNG sprites (PropArt.qml + assets/props/).
   readonly property string activityName: activityLevel === 0 ? "Quiet" : activityLevel === 2 ? "Lively" : "Normal"
   readonly property string motionName: reducedMotion ? "Reduced" : "Full"
   readonly property string curiousCursorName: curiousCursor ? "On" : "Off"
@@ -256,19 +306,25 @@ Item {
   // the clock but can explore the whole bar instead of a fixed pixel lane.
   readonly property real worldMinX: 16
   readonly property real worldMaxX: Math.max(worldMinX, trackLength - petWidth - 16)
+  // Far left/right of the bar are packed with tray icons and system widgets.
+  // Keep spectacle and lingering stories inside this open lane.
+  readonly property real iconMargin: Math.min(140, Math.max(72, Math.round(trackLength * 0.08)))
+  readonly property real laneMinX: Math.min(worldMaxX, worldMinX + iconMargin)
+  readonly property real laneMaxX: Math.max(laneMinX, worldMaxX - iconMargin)
   readonly property real homeX: Math.min(worldMaxX, Math.max(worldMinX, passageRightX + 96))
   readonly property real doorwayX: Math.min(worldMaxX, homeX + 34)
-  readonly property string statusText: snoozed ? "Snoozing for one hour"
-    : sleeping ? "Resting on the bar"
+  readonly property string statusText: snoozed ? "Snoozing for one hour — Wake now or click him"
+    : sleeping ? "Resting on the bar — click to wake, or Explore"
     : carriedItem !== "" ? "Carrying a " + carriedItem + " home"
     : episodeName === "clock-retreat" ? "Hiding behind the clock"
     : episodeName === "clock-cross" ? "Investigating the clock"
     : episodeName === "clock-chase" ? "Chasing something behind the clock"
     : episodeName === "clock-tumble" ? "Possibly stuck behind the clock"
+    : episodeName === "clock-magic" ? "Magic trick: vanish → wrong peek → ta-da"
     : episodeName === "discovery" ? "Searching for treasure"
     : episodeName === "slip" ? "Recovering with dignity"
     : episodeName === "belly-slide" ? "Sliding across the bar"
-    : episodeName === "edge-watch" ? "Inspecting the edge"
+    : episodeName === "edge-watch" ? "Inspecting a quiet gap on the bar"
     : episodeName === "firefly" ? "Following a tiny light"
     : episodeName === "polish" ? "Polishing a favorite pebble"
     : episodeName === "leaf-toss" ? "Playing with a leaf"
@@ -277,6 +333,14 @@ Item {
     : episodeName === "stretch" ? "Taking a serious stretch"
     : episodeName === "lost-pebble" ? "Chasing a runaway pebble"
     : episodeName === "listen" ? "Listening behind the clock"
+    : episodeName === "fire-hoop" ? "Eyeing a flame gate on the bar"
+    : episodeName === "parade-leaf" ? "Marching with a leaf hat and tiny flag"
+    : episodeName === "sumo-pebble" ? "Preparing to shoulder-check a pebble"
+    : episodeName === "cannon" ? "Circus cannon — ball first, then penguin"
+    : episodeName === "rain-umbrella" ? "Waiting out imaginary rain"
+    : episodeName === "fishing" ? "Fishing a puddle on the bar"
+    : episodeName === "sneeze" ? "Fighting a historic sneeze"
+    : episodeName === "zoomies" ? "Experiencing sudden zoomies"
     : personalityMood === "playful" ? "Looking for trouble"
     : personalityMood === "curious" ? "Exploring the bar"
     : "Taking a quiet wander"
@@ -284,16 +348,141 @@ Item {
   Behavior on storyPetOffset { NumberAnimation { duration: 360; easing.type: Easing.InOutCubic } }
 
   function clampX(value) { return Math.max(worldMinX, Math.min(worldMaxX, value)) }
-  function initialPosition() { return doorwayX }
+  function clampLaneX(value) { return Math.max(laneMinX, Math.min(laneMaxX, value)) }
+  // Bar-lane Y for props: same band as the penguin silhouette (no above/below bar space).
+  function barPropY() { return Math.round((habitat.height - petHeight) / 2 + petHeight * 0.58) }
+  function cannonDrawW() { return cannonSpriteW * cannonArtScale * cannonScale }
+  function cannonDrawH() { return cannonSpriteH * cannonArtScale * cannonScale }
+  function petFootY() { return Math.round((habitat.height + petHeight) / 2) }
+  function cannonFloorY() { return Math.round(petFootY() - cannonDrawH()) }
+  function cannonMuzzleX(baseX) { return baseX + (direction > 0 ? cannonDrawW() - 10 : 10) }
+  function cannonMuzzleY() { return cannonFloorY() + Math.round(3 * cannonArtScale) }
+  function cannonLaunchX() {
+    return direction > 0
+      ? Math.round(cannonX + cannonDrawW() - petWidth * 0.78)
+      : Math.round(cannonX - petWidth * 0.22)
+  }
+  function stageCannonPair() {
+    var cw = cannonDrawW()
+    var gap = 20
+    var bundle = petWidth + gap + cw
+    var roomRight = laneMaxX - petX
+    var roomLeft = petX - laneMinX
+    if (roomRight >= bundle) {
+      direction = 1
+      petX = clampLaneX(Math.min(petX, laneMaxX - bundle))
+      cannonX = petX + petWidth + gap
+    } else if (roomLeft >= bundle) {
+      direction = -1
+      petX = clampLaneX(Math.max(petX, laneMinX + bundle))
+      cannonX = petX - cw - gap
+    } else {
+      direction = roomRight >= roomLeft ? 1 : -1
+      if (direction > 0) {
+        petX = clampLaneX(laneMinX + 6)
+        cannonX = petX + petWidth + gap
+      } else {
+        petX = clampLaneX(laneMaxX - petWidth - 6)
+        cannonX = petX - cw - gap
+      }
+    }
+    cannonY = cannonFloorY()
+  }
+  function clearHeadProp() {
+    headPropKind = ""
+    headPropRotation = 0
+    headPropScale = 1
+  }
+  function stageOpenLane(bias) {
+    // bias: 0 leftish, 0.5 mid, 1 rightish — always inside icon-safe lane
+    var t = bias === undefined ? (0.28 + Math.random() * 0.44) : Math.max(0.05, Math.min(0.95, bias))
+    return Math.round(clampLaneX(laneMinX + (laneMaxX - laneMinX) * t))
+  }
+  function passageClearance() { return petWidth + 56 }
+  function overlapsPassage(x) {
+    var right = x + petWidth
+    return right > passageLeftX - 24 && x < passageRightX + 24
+  }
+  function devPreviewSide() {
+    var leftRoom = passageLeftX - laneMinX - passageClearance()
+    var rightRoom = laneMaxX - passageRightX - passageClearance()
+    if (rightRoom >= leftRoom && rightRoom > petWidth + 36) return "right"
+    if (leftRoom > petWidth + 36) return "left"
+    return rightRoom >= leftRoom ? "right" : "left"
+  }
+  // Open-lane spot that keeps the clock cluster visible — for dev triggers and spectacle staging.
+  function devPreviewX(bias) {
+    var side = devPreviewSide()
+    var gap = passageClearance()
+    var minX, maxX
+    if (side === "right") {
+      minX = passageRightX + gap
+      maxX = laneMaxX
+    } else {
+      minX = laneMinX
+      maxX = passageLeftX - gap - petWidth
+    }
+    if (maxX <= minX)
+      return clampLaneX(homeX)
+    var t = bias === undefined ? 0.38 : Math.max(0.08, Math.min(0.92, bias))
+    return clampLaneX(Math.round(minX + (maxX - minX) * t))
+  }
+  function stageOpenLaneClear(bias) {
+    if (bias === undefined)
+      return devPreviewX(0.18 + Math.random() * 0.64)
+    return devPreviewX(bias)
+  }
+  function clockClearRightX() {
+    return clampLaneX(Math.min(laneMaxX - 8, passageRightX + Math.max(56, petWidth + 24)))
+  }
+  function clockClearLeftX() {
+    return clampLaneX(Math.max(laneMinX + 8, passageLeftX - petWidth - Math.max(56, petWidth + 24)))
+  }
+  function magicWrongPeekX() {
+    return clampLaneX(Math.max(laneMinX + 8, clockClearLeftX() - 40))
+  }
+  function magicEmergeX() {
+    return clampLaneX(Math.min(laneMaxX - 8, clockClearRightX() + 32))
+  }
+  function stageForDevTrigger(name) {
+    if (name === "cannon") return clampLaneX(homeX)
+    if (name === "listen") return clockClearRightX()
+    if (name === "magic") return magicEmergeX()
+    if (name === "clock" || name === "retreat") return clockClearRightX()
+    if (name === "polish" || name === "collection-sort") return clampLaneX(Math.min(laneMaxX, homeX + 24))
+    if (name === "edge-watch") return devPreviewX(devPreviewSide() === "left" ? 0.78 : 0.22)
+    return devPreviewX(0.4)
+  }
+  function faceDevPreview() {
+    if (petX + petWidth < passageLeftX - 8) direction = 1
+    else if (petX > passageRightX + 8) direction = -1
+    else direction = petX > (passageLeftX + passageRightX) * 0.5 ? -1 : 1
+  }
+  function clearStoryProp() {
+    storyPropKind = ""
+    storyPropOpacity = 0
+    storyPropScale = 1
+    storyPropRotation = 0
+  }
+  function setStoryProp(kind, x, y, opacity, scale, rotation) {
+    storyPropKind = kind
+    storyPropX = x
+    storyPropY = y === undefined ? barPropY() : y
+    storyPropOpacity = opacity === undefined ? 1 : opacity
+    storyPropScale = scale === undefined ? 1 : scale
+    storyPropRotation = rotation === undefined ? 0 : rotation
+  }
+  function initialPosition() { return homeX }
   function chooseDestination() {
-    var usableWidth = Math.max(1, worldMaxX - worldMinX)
-    var minimumTrip = Math.min(usableWidth * 0.45, Math.max(140, usableWidth * (personalityMood === "playful" ? 0.22 : 0.14)))
-    var candidate = worldMinX + Math.random() * usableWidth
-    for (var attempt = 0; attempt < 5 && Math.abs(candidate - petX) < minimumTrip; attempt++)
-      candidate = worldMinX + Math.random() * usableWidth
-    if (Math.abs(candidate - petX) < minimumTrip)
-      candidate = petX < (worldMinX + worldMaxX) * 0.5 ? worldMaxX : worldMinX
-    return Math.round(clampX(candidate))
+    var usableWidth = Math.max(1, laneMaxX - laneMinX)
+    // Prefer the open lane; avoid tray-icon ends unless a rare full wander.
+    var crossBarChance = personalityMood === "playful" ? 0.18 : 0.10
+    if (Math.random() < crossBarChance) {
+      return Math.round(petX < (laneMinX + laneMaxX) * 0.5 ? laneMaxX : laneMinX)
+    }
+    var reach = Math.min(usableWidth * 0.36, Math.max(72, usableWidth * 0.18))
+    var step = (Math.random() < 0.5 ? -1 : 1) * (56 + Math.random() * reach)
+    return Math.round(clampLaneX(petX + step))
   }
   function randomDiscoveryType() {
     var roll = Math.random()
@@ -302,23 +491,35 @@ Item {
   function currentHour() { return new Date().getHours() }
   function collectionSize() { return leavesFound + pebblesFound + starsFound }
   function isStory(name) {
-    return ["edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen"].indexOf(name) >= 0
+    return ["edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen", "fire-hoop", "parade-leaf", "sumo-pebble", "cannon", "rain-umbrella", "fishing", "sneeze", "zoomies"].indexOf(name) >= 0
   }
   function storyEligible(name) {
     if (name === "polish" || name === "lost-pebble") return pebblesFound > 0
     if (name === "leaf-toss") return leavesFound > 0
     if (name === "collection-sort") return collectionSize() >= 3
     if (name === "stargaze") return currentHour() >= 19 || currentHour() < 6
+    // Circus stunts stay Lively-only and never fight Reduced Motion.
+    if (name === "fire-hoop") return activityLevel === 2 && !reducedMotion
+    if (name === "parade-leaf") return activityLevel === 2 && !reducedMotion && leavesFound > 0
+    if (name === "sumo-pebble") return activityLevel === 2 && !reducedMotion && pebblesFound > 0
+    if (name === "cannon") return activityLevel === 2 && !reducedMotion
+    if (name === "rain-umbrella") return activityLevel === 2 && !reducedMotion && leavesFound > 0
+    if (name === "fishing" || name === "sneeze" || name === "zoomies") return activityLevel === 2 && !reducedMotion
     return true
   }
   function episodeCooldown(name) {
-    var base = name === "clock" ? 240000 : name === "discovery" ? 90000
+    var base = name === "clock" || name === "magic" ? 240000 : name === "discovery" ? 90000
       : name === "slide" ? 150000 : name === "slip" ? 210000
       : name === "stretch" ? 360000 : name === "firefly" ? 480000
       : name === "edge-watch" ? 540000 : name === "listen" ? 600000
       : name === "polish" || name === "leaf-toss" ? 720000
       : name === "lost-pebble" ? 840000 : name === "collection-sort" ? 900000
-      : name === "stargaze" ? 1200000 : 180000
+      : name === "stargaze" ? 1200000
+      : name === "fire-hoop" ? 540000
+      : name === "parade-leaf" || name === "sumo-pebble" ? 480000
+      : name === "cannon" ? 300000
+      : name === "rain-umbrella" || name === "fishing" ? 420000
+      : name === "sneeze" || name === "zoomies" ? 240000 : 180000
     return activityLevel === 2 ? Math.round(base * 0.62) : base
   }
   function episodeReady(name) {
@@ -351,7 +552,7 @@ Item {
   function chooseDirectedEpisode(interactive) {
     var pool = []
     function add(name, weight) {
-      if (reducedMotion && (name === "slide" || name === "slip" || name === "lost-pebble")) return
+      if (reducedMotion && (name === "slide" || name === "slip" || name === "lost-pebble" || name === "fire-hoop" || name === "parade-leaf" || name === "sumo-pebble" || name === "cannon" || name === "rain-umbrella" || name === "fishing" || name === "sneeze" || name === "zoomies")) return
       if (!storyEligible(name) || !episodeReady(name) || recentEpisodes.slice(0, 3).indexOf(name) >= 0) {
         if (storyEligible(name) && episodeReady(name)) repeatAvoided++
         return
@@ -359,9 +560,13 @@ Item {
       for (var index = 0; index < weight; index++) pool.push(name)
     }
     if (activityLevel === 2) {
-      add("discovery", 2); add("clock", 1); add("slide", 3); add("slip", 3)
-      add("edge-watch", 1); add("firefly", 2); add("stretch", 2); add("listen", 1)
-      add("polish", 1); add("leaf-toss", 2); add("stargaze", 1); add("collection-sort", 1); add("lost-pebble", 2)
+      // Lively: circus first, locomotion as seasoning — not the whole meal.
+      add("discovery", 2); add("clock", 1); add("slide", 1); add("slip", 1)
+      add("edge-watch", 1); add("firefly", 1); add("stretch", 1); add("listen", 1)
+      add("polish", 1); add("leaf-toss", 1); add("stargaze", 1); add("collection-sort", 1); add("lost-pebble", 1)
+      add("fire-hoop", 2); add("parade-leaf", 2); add("sumo-pebble", 2)
+      add("cannon", 4)
+      add("rain-umbrella", 2); add("fishing", 2); add("sneeze", 3); add("zoomies", 3)
     } else {
       add("discovery", 3); add("clock", 2); add("slide", interactive ? 2 : 1); add("slip", 1)
       add("edge-watch", 2); add("firefly", 2); add("stretch", 2); add("listen", 1)
@@ -453,9 +658,9 @@ Item {
     rustling = false
     if (interactive !== undefined) personalityMood = interactive ? (pokeCount >= 2 ? "playful" : "curious") : "sleepy"
     outings++; saveState()
-    var lingerChance = reducedMotion ? 0.20 : activityLevel === 2 ? 0.62 : 0.36
-    outingActsRemaining = Math.random() < lingerChance ? (activityLevel === 2 && Math.random() < 0.18 ? 2 : 1) : 0
-    journeyPhase = "outbound"; petX = homeX + 5; direction = 1
+    var lingerChance = reducedMotion ? 0.20 : activityLevel === 2 ? 0.40 : 0.36
+    outingActsRemaining = Math.random() < lingerChance ? (activityLevel === 2 && Math.random() < 0.12 ? 2 : 1) : 0
+    journeyPhase = "outbound"; petX = homeX; direction = 1
     poseFrame = isPenguin ? 3 : 0; action = "emerging"; poseTimer.interval = 155; poseTimer.restart()
   }
   function wakeAndWalk(interactive) {
@@ -474,7 +679,11 @@ Item {
       sleepMarkerTimer.stop(); deepSleeping = false
       personalityMood = interactive ? "curious" : activityLevel === 2 && Math.random() < 0.64 ? "playful" : "sleepy"
       if (interactive !== true) queueAutonomousEpisode()
-      rustling = true; peekOpacity = 0.65; eyeOpen = 1; rustleAnimation.restart()
+      if (reducedMotion || !isPenguin) {
+        beginEmergence(interactive)
+      } else {
+        rustling = true; peekOpacity = 0.65; eyeOpen = 1; rustleAnimation.restart(); rustleWatchdog.restart()
+      }
     }
     else beginEmergence(interactive)
   }
@@ -484,13 +693,21 @@ Item {
       finalX = clampX(chaseTargetX)
       chaseTargetX = -1
     } else if (storyQueued === "edge-watch") {
-      finalX = Math.random() < 0.5 ? worldMinX + 6 : worldMaxX - 6
+      // Inspect a quiet gap inside the open lane — never tray-icon ends.
+      finalX = stageOpenLane(Math.random() < 0.5 ? 0.18 : 0.82)
     } else if (storyQueued === "listen") {
-      finalX = clampX(passageRightX + petWidth + 24)
+      finalX = clampLaneX(passageRightX + petWidth + 24)
     } else if (storyQueued === "polish" || storyQueued === "collection-sort") {
-      finalX = clampX(homeX + 90 + Math.random() * 70)
+      finalX = clampLaneX(homeX + 90 + Math.random() * 70)
     } else if (["firefly", "leaf-toss", "lost-pebble", "stargaze"].indexOf(storyQueued) >= 0) {
-      finalX = Math.max(worldMinX + 70, Math.min(worldMaxX - 90, chooseDestination()))
+      finalX = clampLaneX(Math.max(laneMinX + 40, Math.min(laneMaxX - 40, chooseDestination())))
+    } else if (storyQueued === "cannon") {
+      finalX = clampLaneX(homeX + 8)
+    } else if (storyQueued === "fishing") {
+      // Puddle-fish mid-lane — never over the clock cluster.
+      finalX = stageOpenLaneClear(0.42)
+    } else if (["fire-hoop", "parade-leaf", "sumo-pebble", "rain-umbrella", "sneeze", "zoomies"].indexOf(storyQueued) >= 0) {
+      finalX = stageOpenLaneClear()
     } else {
       finalX = chooseDestination()
     }
@@ -722,7 +939,7 @@ Item {
     if (finalCuriosity && isPenguin) {
       collectDiscovery()
       if (storyQueued !== "") startQueuedStory()
-      else if (personalityMood === "playful" && episodeReady("slide") && Math.random() < (activityLevel === 2 ? 0.30 : 0.14)) startSlide()
+      else if (personalityMood === "playful" && episodeReady("slide") && Math.random() < (activityLevel === 2 ? 0.12 : 0.14)) startSlide()
       else beginIdleRoutine()
     }
     else if (finalCuriosity) { collectDiscovery(); settleTurn.restart() }
@@ -770,20 +987,26 @@ Item {
     var toyNear = discoveryVisible && Math.abs(discoveryX - passageRightX) < 140
     if (toyNear && Math.random() < 0.58) return "chase"
     if (!toyNear && Math.random() < 0.20) return "chase"
+    if (activityLevel === 2 && !reducedMotion && Math.random() < 0.14) return "magic"
     if (Math.random() < 0.14) return "tumble"
     if (Math.random() < 0.36) return "shy"
     return "bold"
   }
-  function startClockEpisode(suspicious) {
+  function startClockEpisode(suspicious, forcedStyle) {
     if (!isPenguin || !placed || clockApproach.running || clockOcclusion.running || clockTransitOcclusion.running) return
     if (petX + petWidth < passageLeftX) { startClockTransit(doorwayX, 1); return }
-    markEpisode(suspicious ? "retreat" : "clock")
+    markEpisode(suspicious ? "retreat" : (forcedStyle === "magic" ? "magic" : "clock"))
     walkMotion.stop(); slideMotion.stop(); slipMotion.stop(); poseTimer.stop(); curiosityAnimation.stop()
     slideTimer.stop(); slipTimer.stop(); idleActionTimer.stop(); idleBlendAnimation.stop(); idleTransitionMotion.stop()
+    clearStoryProp()
     var escapedToy = clockChaseItem
-    clockStyle = escapedToy !== "" ? "chase" : chooseClockStyle(suspicious === true)
-    clockPeekHoldMs = clockStyle === "shy" ? 480 : clockStyle === "bold" ? 1180 : clockStyle === "tumble" ? 1680 : 920
-    clockPeekLoops = clockStyle === "shy" ? 1 : clockStyle === "bold" ? 2 : clockStyle === "tumble" ? 3 : 2
+    clockStyle = forcedStyle || (escapedToy !== "" ? "chase" : chooseClockStyle(suspicious === true))
+    clockPeekHoldMs = clockStyle === "shy" ? 480
+      : clockStyle === "bold" ? 1180
+      : clockStyle === "tumble" ? 1680
+      : clockStyle === "magic" ? 720
+      : 920
+    clockPeekLoops = clockStyle === "shy" ? 1 : clockStyle === "bold" ? 2 : clockStyle === "tumble" ? 3 : clockStyle === "magic" ? 2 : 1
     if (clockStyle === "chase") {
       if (escapedToy !== "") {
         // Toy already fled behind the clock — pursue without re-spawning on this side.
@@ -811,6 +1034,9 @@ Item {
       if (clockStyle === "tumble") {
         episodeName = "clock-tumble"
         personalityMood = "playful"
+      } else if (clockStyle === "magic") {
+        episodeName = "clock-magic"
+        personalityMood = "playful"
       } else if (clockStyle === "shy") {
         episodeName = suspicious ? "clock-retreat" : "clock-cross"
         personalityMood = "cautious"
@@ -820,7 +1046,8 @@ Item {
       }
     }
     clockTransit = false
-    direction = -1; targetX = passageRightX + 3
+    direction = -1
+    targetX = clockClearRightX()
     action = "clockApproach"; walkFrame = 0; animalOpacity = 1
     clockApproach.from = petX; clockApproach.to = targetX
     clockApproach.duration = Math.max(480, Math.min(6000, Math.round(Math.abs(targetX - petX) / 180 * 1000)))
@@ -855,7 +1082,7 @@ Item {
   function finishClockEpisode() {
     animalOpacity = 1
     direction = 1
-    petX = passageRightX + 3
+    petX = clockStyle === "magic" ? magicEmergeX() : clockClearRightX()
     retreatQueued = false
     if (clockStyle === "shy" || episodeName === "clock-retreat") {
       suspiciousRetreats++
@@ -884,6 +1111,9 @@ Item {
     } else if (clockStyle === "tumble") {
       clockPassages++
       rememberEvent("Got stuck behind the clock. Emerged with questionable grace.", 2)
+    } else if (clockStyle === "magic") {
+      clockPassages++
+      rememberEvent("Vanished into the clock. Wrong peek. Reappeared. Magicians hate this.", 2)
     } else {
       clockPassages++
       rememberEvent("Stared down the clock. Time blinked first.", 2)
@@ -891,6 +1121,7 @@ Item {
     episodeName = ""
     var tumbleOut = clockStyle === "tumble" && !reducedMotion
     clockStyle = ""
+    clearStoryProp()
     saveState()
     if (tumbleOut) {
       // Rare clumsy exit — a short slip sells the stuck beat.
@@ -901,12 +1132,16 @@ Item {
   }
   function startReturn() {
     journeyPhase = "returning"; pauseOnRoute = false
-    if (isPenguin) { pendingDestination = doorwayX; poseFrame = 0; action = "starting"; poseTimer.interval = 110; poseTimer.restart() }
-    else startLeg(doorwayX)
+    // Den renders at homeX — returning to doorwayX made sleep look like a teleport jump.
+    if (isPenguin) { pendingDestination = homeX; poseFrame = 0; action = "starting"; poseTimer.interval = 110; poseTimer.restart() }
+    else startLeg(homeX)
   }
   function beginEntering() {
-    if (isPenguin) { poseFrame = 0; action = "settling"; poseTimer.interval = 165; poseTimer.restart() }
-    else { poseFrame = 7; action = "entering"; poseTimer.interval = 145; poseTimer.restart() }
+    if (isPenguin) {
+      direction = -1
+      petX = homeX
+      poseFrame = 0; action = "settling"; poseTimer.interval = 150; poseTimer.restart()
+    } else { poseFrame = 7; action = "entering"; poseTimer.interval = 145; poseTimer.restart() }
   }
   function startSlide() {
     if (!isPenguin || !placed || slideMotion.running) return
@@ -947,8 +1182,12 @@ Item {
   }
   function resetStoryVisuals() {
     storyTimer.stop()
-    storyPropGlyph = ""; storyPropOpacity = 0; storyPropScale = 1; storyPropRotation = 0
+    clearStoryProp()
+    clearHeadProp()
     storyPetOffset = 0
+    hoopVisible = false; hoopOpacity = 0; hoopScale = 1; hoopGlow = 0
+    cannonVisible = false; cannonOpacity = 0; cannonScale = 1; cannonFlash = false
+    storyPetInFront = false
     animal.sniffRotation = 0; animal.hopOffset = 0
   }
   function startQueuedStory() {
@@ -959,7 +1198,7 @@ Item {
   }
   function finishStory() {
     var notes = {
-      "edge-watch": "Confirmed that the bar still has an edge.",
+      "edge-watch": "Confirmed the open lane still has a quiet gap.",
       "firefly": "Followed a tiny light until it vanished.",
       "polish": "Polished one pebble to a respectable shine.",
       "leaf-toss": "A leaf briefly became excellent entertainment.",
@@ -967,7 +1206,21 @@ Item {
       "collection-sort": "Rearranged the collection. Again.",
       "stretch": "Completed a surprisingly serious stretch.",
       "lost-pebble": "Recovered a pebble attempting an escape.",
-      "listen": "Heard something behind the clock. Probably time."
+      "listen": "Heard something behind the clock. Probably time.",
+      "fire-hoop": hoopSuccess
+        ? "Sprinted through a flame gate on the bar. Clean."
+        : "Misjudged a flame gate. Singed dignity.",
+      "parade-leaf": "Wore a leaf as a hat and marched with a flag. The leaf resigned mid-parade.",
+      "sumo-pebble": sumoWin
+        ? "Shoulder-checked a pebble. The pebble reconsidered its life choices."
+        : "Challenged a pebble to sumo. The pebble won.",
+      "cannon": cannonStick
+        ? "Fired a cannonball, then himself. Stuck the landing."
+        : "The cannonball flew true. The penguin did not.",
+      "rain-umbrella": "Sheltered under a leaf. The rain was mostly theoretical.",
+      "fishing": "Fished a bar-lane puddle. Catch and release. Mostly release.",
+      "sneeze": "Sneezed hard enough to relocate himself.",
+      "zoomies": "Completed three unauthorized laps. No notes."
     }
     if (notes[storyName]) rememberEvent(notes[storyName], storyName === "stargaze" ? 2 : 1)
     resetStoryVisuals(); storyName = ""; episodeName = ""; saveState()
@@ -982,39 +1235,39 @@ Item {
       else if (stage === 2) { idleFrame = 7; animal.sniffRotation = 0; animal.hopOffset = 0; storyDelay(620) }
       else finishStory()
     } else if (storyName === "firefly") {
-      if (stage === 0) { idleFrame = 0; storyPropGlyph = "•"; storyPropX = petX + petWidth + 4; storyPropY = 6; storyPropOpacity = 0.9; storyPropScale = 0.8; storyDelay(520) }
+      if (stage === 0) { idleFrame = 0; setStoryProp("firefly", petX + petWidth + 4, Math.round(habitat.height * 0.35), 0.95, 0.85); storyDelay(520) }
       else if (stage === 1) { idleFrame = 1; storyPropX += direction * 22; storyPropY = 2; storyPropScale = 1.25; animal.sniffRotation = direction * 6; storyDelay(720) }
       else if (stage === 2) { idleFrame = 2; storyPropX -= direction * 13; storyPropY = 13; storyPropScale = 0.72; animal.sniffRotation = direction * -5; storyDelay(680) }
       else if (stage === 3) { idleFrame = 7; storyPropX += direction * 34; storyPropY = 4; storyPropScale = 1.05; animal.hopOffset = -3; storyDelay(760) }
-      else if (stage === 4) { storyPropOpacity = 0; animal.hopOffset = 0; animal.sniffRotation = 0; storyDelay(480) }
+      else if (stage === 4) { clearStoryProp(); animal.hopOffset = 0; animal.sniffRotation = 0; storyDelay(480) }
       else finishStory()
     } else if (storyName === "polish") {
-      if (stage === 0) { idleFrame = 3; storyPropGlyph = "●"; storyPropX = petX + petWidth - 5; storyPropY = 17; storyPropOpacity = 0.95; storyDelay(700) }
+      if (stage === 0) { idleFrame = 3; setStoryProp("pebble", petX + petWidth - 5, barPropY(), 1, 1); storyDelay(700) }
       else if (stage === 1) { idleFrame = 0; animal.sniffRotation = 6; storyPropRotation = 28; storyDelay(620) }
       else if (stage === 2) { idleFrame = 2; animal.sniffRotation = -5; storyPropRotation = -24; storyDelay(620) }
-      else if (stage === 3) { idleFrame = 7; storyPropGlyph = "✦"; storyPropScale = 1.35; storyDelay(850) }
-      else if (stage === 4) { storyPropOpacity = 0; animal.sniffRotation = 0; storyDelay(420) }
+      else if (stage === 3) { idleFrame = 7; storyPropKind = "star"; storyPropScale = 1.25; storyDelay(850) }
+      else if (stage === 4) { clearStoryProp(); animal.sniffRotation = 0; storyDelay(420) }
       else finishStory()
     } else if (storyName === "leaf-toss") {
-      if (stage === 0) { idleFrame = 4; storyPropGlyph = "◆"; storyPropX = petX + petWidth - 2; storyPropY = 17; storyPropOpacity = 0.9; storyDelay(480) }
+      if (stage === 0) { idleFrame = 4; setStoryProp("leaf", petX + petWidth - 2, barPropY(), 0.95, 1); storyDelay(480) }
       else if (stage === 1) { idleFrame = 5; storyPropX += direction * 18; storyPropY = 1; storyPropRotation = 95; animal.hopOffset = -3; storyDelay(720) }
       else if (stage === 2) { idleFrame = 7; storyPropX -= direction * 10; storyPropY = 11; storyPropRotation = 190; animal.hopOffset = 0; storyDelay(620) }
       else if (stage === 3) { idleFrame = 5; storyPropX += direction * 15; storyPropY = 4; storyPropRotation = 285; animal.hopOffset = -2; storyDelay(680) }
-      else if (stage === 4) { storyPropOpacity = 0; animal.hopOffset = 0; storyDelay(400) }
+      else if (stage === 4) { clearStoryProp(); animal.hopOffset = 0; storyDelay(400) }
       else finishStory()
     } else if (storyName === "stargaze") {
-      if (stage === 0) { idleFrame = 1; storyPropGlyph = "✦"; storyPropX = petX + petWidth + 8; storyPropY = 2; storyPropOpacity = 0.35; storyPropScale = 0.7; storyDelay(700) }
+      if (stage === 0) { idleFrame = 1; setStoryProp("star", petX + petWidth + 8, Math.round(habitat.height * 0.22), 0.45, 0.75); storyDelay(700) }
       else if (stage === 1) { idleFrame = 7; storyPropOpacity = 1; storyPropScale = 1.3; animal.sniffRotation = direction * -7; storyDelay(1500) }
       else if (stage === 2) { storyPropOpacity = 0.55; storyPropScale = 0.9; storyDelay(1100) }
       else if (stage === 3) { storyPropOpacity = 1; storyPropScale = 1.15; storyDelay(1300) }
-      else if (stage === 4) { storyPropOpacity = 0; animal.sniffRotation = 0; storyDelay(500) }
+      else if (stage === 4) { clearStoryProp(); animal.sniffRotation = 0; storyDelay(500) }
       else finishStory()
     } else if (storyName === "collection-sort") {
-      if (stage === 0) { idleFrame = 3; storyPropGlyph = pebblesFound > 0 ? "●" : "◆"; storyPropX = petX + petWidth - 3; storyPropY = 18; storyPropOpacity = 0.95; storyDelay(650) }
-      else if (stage === 1) { idleFrame = 0; storyPropX += direction * 11; storyPropGlyph = leavesFound > 0 ? "◆" : "●"; animal.sniffRotation = 5; storyDelay(700) }
-      else if (stage === 2) { idleFrame = 2; storyPropX += direction * 10; storyPropGlyph = starsFound > 0 ? "✦" : "●"; animal.sniffRotation = -5; storyDelay(700) }
-      else if (stage === 3) { idleFrame = 7; storyPropX -= direction * 10; storyPropGlyph = "● ◆"; animal.sniffRotation = 0; storyDelay(900) }
-      else if (stage === 4) { storyPropOpacity = 0; storyDelay(420) }
+      if (stage === 0) { idleFrame = 3; setStoryProp(pebblesFound > 0 ? "pebble" : "leaf", petX + petWidth - 3, barPropY(), 1, 1); storyDelay(650) }
+      else if (stage === 1) { idleFrame = 0; storyPropX += direction * 11; storyPropKind = leavesFound > 0 ? "leaf" : "pebble"; animal.sniffRotation = 5; storyDelay(700) }
+      else if (stage === 2) { idleFrame = 2; storyPropX += direction * 10; storyPropKind = starsFound > 0 ? "star" : "pebble"; animal.sniffRotation = -5; storyDelay(700) }
+      else if (stage === 3) { idleFrame = 7; storyPropX -= direction * 10; storyPropKind = "pebble"; animal.sniffRotation = 0; storyDelay(900) }
+      else if (stage === 4) { clearStoryProp(); storyDelay(420) }
       else finishStory()
     } else if (storyName === "stretch") {
       if (stage === 0) { idleFrame = 6; animal.sniffRotation = direction * -4; storyDelay(780) }
@@ -1023,19 +1276,428 @@ Item {
       else if (stage === 3) { idleFrame = 7; animal.hopOffset = 0; animal.sniffRotation = 0; storyDelay(600) }
       else finishStory()
     } else if (storyName === "lost-pebble") {
-      if (stage === 0) { idleFrame = 1; storyPropGlyph = "●"; storyPropX = petX + petWidth - 4; storyPropY = 18; storyPropOpacity = 1; storyDelay(520) }
+      if (stage === 0) { idleFrame = 1; setStoryProp("pebble", petX + petWidth - 4, barPropY(), 1, 1); storyDelay(520) }
       else if (stage === 1) { idleFrame = 2; storyPropX += direction * 58; storyPropRotation = 180; animal.sniffRotation = direction * 9; storyDelay(850) }
       else if (stage === 2) { idleFrame = 5; storyPetOffset = direction * 24; animal.hopOffset = -3; storyDelay(650) }
       else if (stage === 3) { idleFrame = 0; storyPropX -= direction * 13; storyPetOffset = direction * 38; animal.hopOffset = 0; storyDelay(700) }
-      else if (stage === 4) { idleFrame = 7; storyPropOpacity = 0; storyPetOffset = 0; animal.sniffRotation = 0; storyDelay(520) }
+      else if (stage === 4) { idleFrame = 7; clearStoryProp(); storyPetOffset = 0; animal.sniffRotation = 0; storyDelay(520) }
       else finishStory()
     } else if (storyName === "listen") {
-      if (stage === 0) { idleFrame = 0; storyPropGlyph = "···"; storyPropX = passageRightX + 3; storyPropY = 8; storyPropOpacity = 0.35; animal.sniffRotation = -6; storyDelay(900) }
+      if (stage === 0) { idleFrame = 0; setStoryProp("dots", passageRightX + 3, Math.round(habitat.height * 0.35), 0.4, 1); animal.sniffRotation = -6; storyDelay(900) }
       else if (stage === 1) { idleFrame = 1; storyPropOpacity = 0.9; animal.sniffRotation = 5; storyDelay(1200) }
       else if (stage === 2) { idleFrame = 2; storyPropScale = 1.25; animal.sniffRotation = -3; storyDelay(900) }
-      else if (stage === 3) { idleFrame = 7; storyPropOpacity = 0; animal.sniffRotation = 0; storyDelay(550) }
+      else if (stage === 3) { idleFrame = 7; clearStoryProp(); animal.sniffRotation = 0; storyDelay(550) }
       else finishStory()
+    } else if (storyName === "parade-leaf") {
+      if (stage === 0) {
+        direction = Math.random() < 0.5 ? -1 : 1
+        idleFrame = 7
+        headPropKind = "leaf-hat"
+        headPropRotation = direction * -10
+        headPropScale = 1.05
+        setStoryProp("parade-flag", petX + (direction > 0 ? petWidth + 6 : -14), barPropY() - 6, 1, 1.05, direction * 8)
+        animal.sniffRotation = direction * 3
+        storyDelay(480)
+      } else if (stage === 1) {
+        idleFrame = 5
+        storyPetOffset = direction * 30
+        storyPropX = petX + storyPetOffset + (direction > 0 ? petWidth + 8 : -10)
+        headPropRotation = direction * 8
+        animal.hopOffset = -2
+        storyDelay(500)
+      } else if (stage === 2) {
+        idleFrame = 5
+        storyPetOffset = direction * 58
+        storyPropX = petX + storyPetOffset + (direction > 0 ? petWidth + 6 : -8)
+        headPropRotation = direction * -5
+        animal.hopOffset = -2
+        storyDelay(480)
+      } else if (stage === 3) {
+        idleFrame = 2
+        headPropKind = ""
+        setStoryProp("leaf-hat", petX + storyPetOffset + petWidth * 0.38, barPropY() - 8, 1, 1, direction * 130)
+        animal.hopOffset = 0
+        animal.sniffRotation = direction * -9
+        storyDelay(420)
+      } else if (stage === 4) {
+        idleFrame = 0
+        storyPropY = barPropY()
+        storyPropRotation = direction * 210
+        animal.sniffRotation = direction * 6
+        storyDelay(500)
+      } else if (stage === 5) {
+        idleFrame = 3
+        storyPropX = petX + storyPetOffset + petWidth * 0.52
+        storyPropRotation = direction * 20
+        storyPropScale = 0.95
+        animal.hopOffset = -2
+        storyDelay(460)
+      } else if (stage === 6) {
+        clearStoryProp()
+        clearHeadProp()
+        animal.hopOffset = 0
+        commitStoryTravel()
+        storyDelay(320)
+      } else finishStory()
+    } else if (storyName === "sumo-pebble") {
+      if (stage === 0) {
+        var roomRight = laneMaxX - (petX + petWidth)
+        var roomLeft = petX - laneMinX
+        direction = roomRight >= 60 || roomRight >= roomLeft ? 1 : -1
+        sumoWin = Math.random() < 0.58
+        idleFrame = 1
+        setStoryProp("pebble", clampLaneX(petX + (direction > 0 ? 46 : -38)), barPropY(), 1, 1.15)
+        animal.sniffRotation = direction * 10
+        storyDelay(420)
+      } else if (stage === 1) {
+        // Pebble rolls in; penguin squares up
+        idleFrame = 2
+        storyPropX += direction * -10
+        storyPropRotation = direction * -40
+        animal.hopOffset = -1
+        storyDelay(400)
+      } else if (stage === 2) {
+        // Charge
+        idleFrame = 5
+        storyPetOffset = direction * 22
+        animal.hopOffset = -3
+        animal.sniffRotation = direction * 4
+        storyDelay(300)
+      } else if (stage === 3) {
+        // Impact
+        idleFrame = 5
+        storyPetOffset = direction * 34
+        animal.hopOffset = 0
+        if (sumoWin) {
+          storyPropX = petX + storyPetOffset + (direction > 0 ? petWidth + 8 : -14)
+          storyPropY = Math.round(habitat.height * 0.35)
+          storyPropRotation = direction * 220
+          storyPropScale = 1.3
+          animal.sniffRotation = 0
+          storyDelay(420)
+        } else {
+          // Pebble holds the line; penguin ricochets
+          storyPropX = petX + storyPetOffset + (direction > 0 ? petWidth - 2 : -6)
+          storyPropY = barPropY()
+          storyPropRotation = direction * 25
+          storyPetOffset = direction * 8
+          animal.sniffRotation = direction * -12
+          animal.hopOffset = 2
+          storyDelay(360)
+        }
+      } else if (stage === 4) {
+        if (sumoWin) {
+          idleFrame = 7
+          storyPropX += direction * 28
+          storyPropY = barPropY()
+          storyPropOpacity = 0.55
+          storyPropScale = 1
+          animal.hopOffset = -1
+          storyDelay(520)
+        } else {
+          idleFrame = 2
+          storyPropOpacity = 0.85
+          animal.hopOffset = 0
+          storyDelay(240)
+        }
+      } else if (stage === 5) {
+        clearStoryProp()
+        animal.sniffRotation = 0
+        animal.hopOffset = 0
+        if (!sumoWin) {
+          finishStoryIntoSlip()
+        } else {
+          commitStoryTravel()
+          storyDelay(340)
+        }
+      } else finishStory()
+    } else if (storyName === "cannon") {
+      if (stage === 0) {
+        petX = clampLaneX(homeX)
+        cannonStick = Math.random() < 0.62
+        clearStoryProp()
+        clearHeadProp()
+        stageCannonPair()
+        cannonVisible = true
+        cannonOpacity = 1
+        cannonScale = 1
+        cannonFlash = false
+        storyPetInFront = true
+        storyPetOffset = 0
+        idleFrame = 3
+        animal.sniffRotation = direction * 5
+        animal.hopOffset = 0
+        animalOpacity = 1
+        storyDelay(560)
+      } else if (stage === 1) {
+        // Lean toward the breech — still fully beside the barrel, not inside it.
+        idleFrame = 2
+        storyPetInFront = true
+        storyPetOffset = direction * 5
+        animal.hopOffset = -1
+        animal.sniffRotation = direction * 8
+        animalOpacity = 1
+        storyDelay(420)
+      } else if (stage === 2) {
+        commitStoryTravel()
+        idleFrame = 3
+        storyPetOffset = 0
+        animal.hopOffset = 0
+        animalOpacity = 0
+        storyDelay(320)
+      } else if (stage === 3) {
+        // Ball first — Pebble is already gone.
+        idleFrame = 3
+        cannonFlash = true
+        storyDelay(220)
+      } else if (stage === 4) {
+        cannonFlash = false
+        cannonVisible = false
+        storyPetInFront = true
+        petX = clampLaneX(cannonLaunchX())
+        action = "sliding"
+        poseFrame = 0
+        animalOpacity = 1
+        animal.hopOffset = -2
+        var sail = Math.min(140, Math.max(70, Math.abs((direction > 0 ? laneMaxX : laneMinX) - petX) * 0.72))
+        storyPetOffset = direction * sail
+        animal.sniffRotation = direction * 6
+        storyDelay(620)
+      } else if (stage === 5) {
+        action = "idleAction"
+        animal.hopOffset = 0
+        animal.sniffRotation = cannonStick ? 0 : direction * -10
+        idleFrame = cannonStick ? 7 : 2
+        storyDelay(cannonStick ? 480 : 240)
+      } else if (stage === 6) {
+        if (!cannonStick) finishStoryIntoSlip()
+        else { commitStoryTravel(); storyDelay(300) }
+      } else finishStory()
+    } else if (storyName === "rain-umbrella") {
+      if (stage === 0) {
+        direction = Math.random() < 0.5 ? -1 : 1
+        idleFrame = 7
+        headPropKind = "umbrella"
+        headPropRotation = direction * -14
+        headPropScale = 1.1
+        setStoryProp("rain-drop", petX + petWidth * 0.55, barPropY() - 2, 0.65, 0.9)
+        storyDelay(420)
+      } else if (stage === 1) {
+        idleFrame = 3
+        headPropRotation = direction * 10
+        storyPropKind = "rain-drop"
+        storyPropX += direction * 6
+        storyPropY = barPropY() - 4
+        storyPropOpacity = 0.8
+        animal.sniffRotation = 4
+        storyDelay(520)
+      } else if (stage === 2) {
+        idleFrame = 5
+        storyPetOffset = direction * 24
+        headPropRotation = direction * -8
+        storyPropX += direction * 10
+        storyPropY = barPropY() - 3
+        storyPropOpacity = 0.95
+        storyDelay(520)
+      } else if (stage === 3) {
+        idleFrame = 5
+        storyPetOffset = direction * 46
+        headPropRotation = direction * 6
+        storyPropX += direction * 8
+        storyPropOpacity = 0.85
+        storyDelay(520)
+      } else if (stage === 4) {
+        idleFrame = 7
+        clearStoryProp()
+        clearHeadProp()
+        animal.sniffRotation = 0
+        commitStoryTravel()
+        storyDelay(400)
+      } else finishStory()
+    } else if (storyName === "fishing") {
+      if (stage === 0) {
+        // Mid-lane puddle cast — never tray-icon ends.
+        petX = stageOpenLaneClear(0.42)
+        direction = Math.random() < 0.5 ? -1 : 1
+        idleFrame = 1
+        setStoryProp("puddle", petX - 8, barPropY() + 1, 0.95, 1)
+        animal.sniffRotation = direction * 6
+        storyDelay(500)
+      } else if (stage === 1) {
+        idleFrame = 0
+        storyPropKind = "fishing-rod"
+        storyPropX = petX + (direction > 0 ? petWidth - 6 : -8)
+        storyPropY = barPropY() - 10
+        storyPropRotation = direction * -22
+        storyPropOpacity = 1
+        animal.sniffRotation = direction * -4
+        storyDelay(700)
+      } else if (stage === 2) {
+        idleFrame = 2
+        storyPropKind = "line"
+        storyPropX = petX + (direction > 0 ? 22 : -10)
+        storyPropY = barPropY() - 4
+        storyPropRotation = 0
+        storyPropScale = 1
+        animal.hopOffset = -1
+        storyDelay(520)
+      } else if (stage === 3) {
+        idleFrame = 2
+        storyPropX = petX + (direction > 0 ? 18 : -12)
+        storyPropY = barPropY() + 1
+        if (Math.random() < 0.55) {
+          storyPropKind = "star"
+          storyPropScale = 1.1
+        } else {
+          storyPropKind = "firefly"
+          storyPropScale = 0.85
+        }
+        animal.hopOffset = -1
+        storyDelay(520)
+      } else if (stage === 4) {
+        idleFrame = 7
+        storyPropX = petX + petWidth * 0.45
+        storyPropY = barPropY()
+        animal.hopOffset = 0
+        animal.sniffRotation = 0
+        storyDelay(560)
+      } else if (stage === 5) {
+        clearStoryProp()
+        storyDelay(320)
+      } else finishStory()
+    } else if (storyName === "sneeze") {
+      if (stage === 0) {
+        direction = Math.random() < 0.5 ? -1 : 1
+        idleFrame = 2
+        animal.sniffRotation = direction * 8
+        setStoryProp("dots", petX + petWidth * 0.4, Math.round(habitat.height * 0.28), 0.7, 1)
+        storyDelay(420)
+      } else if (stage === 1) {
+        idleFrame = 0
+        animal.sniffRotation = direction * -10
+        storyPropOpacity = 1
+        storyDelay(380)
+      } else if (stage === 2) {
+        idleFrame = 5
+        storyPropKind = "bang"
+        storyPetOffset = direction * 48
+        animal.hopOffset = -2
+        animal.sniffRotation = direction * 14
+        storyDelay(360)
+      } else if (stage === 3) {
+        animal.hopOffset = 0
+        idleFrame = 2
+        clearStoryProp()
+        animal.sniffRotation = direction * -6
+        storyDelay(400)
+      } else if (stage === 4) {
+        commitStoryTravel()
+        animal.sniffRotation = 0
+        storyDelay(280)
+      } else finishStory()
+    } else if (storyName === "zoomies") {
+      if (stage === 0) {
+        direction = Math.random() < 0.5 ? -1 : 1
+        idleFrame = 5
+        animal.hopOffset = -1
+        storyDelay(180)
+      } else if (stage === 1) {
+        storyPetOffset = direction * 36
+        storyDelay(220)
+      } else if (stage === 2) {
+        direction *= -1
+        storyPetOffset = direction * 28
+        idleFrame = 5
+        storyDelay(200)
+      } else if (stage === 3) {
+        direction *= -1
+        storyPetOffset = direction * 42
+        storyDelay(220)
+      } else if (stage === 4) {
+        direction *= -1
+        storyPetOffset = direction * 18
+        idleFrame = 2
+        animal.hopOffset = 0
+        storyDelay(280)
+      } else if (stage === 5) {
+        commitStoryTravel()
+        idleFrame = 7
+        storyDelay(320)
+      } else finishStory()
+    } else if (storyName === "fire-hoop") {
+      if (stage === 0) {
+        var roomRight = laneMaxX - (petX + petWidth)
+        var roomLeft = petX - laneMinX
+        direction = roomRight >= 70 || roomRight >= roomLeft ? 1 : -1
+        var gap = Math.min(78, Math.max(48, (direction > 0 ? roomRight : roomLeft) * 0.55))
+        var gateCenter = clampLaneX(petX + (direction > 0 ? gap : -gap - 10))
+        hoopX = gateCenter - hoopGateWidth * 0.5
+        hoopY = barPropY()
+        hoopVisible = true
+        hoopOpacity = 0
+        hoopScale = 1
+        hoopGlow = 0
+        hoopSuccess = Math.random() < 0.72
+        storyPetInFront = false
+        idleFrame = 1
+        animal.sniffRotation = direction * 6
+        animal.hopOffset = 0
+        storyDelay(320)
+      } else if (stage === 1) {
+        hoopOpacity = 1
+        idleFrame = 5
+        storyPetOffset = (hoopX + hoopGateWidth * 0.5 - petX - petWidth * 0.5) - direction * 22
+        animal.sniffRotation = direction * 4
+        hoopGlow = 0.45
+        storyDelay(400)
+      } else if (stage === 2) {
+        idleFrame = 5
+        storyPetInFront = true
+        storyPetOffset = (hoopX + hoopGateWidth * 0.5 - petX - petWidth * 0.5)
+        hoopGlow = 0.85
+        storyDelay(360)
+      } else if (stage === 3) {
+        idleFrame = 5
+        storyPetOffset = (hoopX + hoopGateWidth * 0.5 - petX - petWidth * 0.5) + direction * 24
+        hoopGlow = 1
+        storyDelay(380)
+      } else if (stage === 4) {
+        storyPetInFront = false
+        storyPetOffset = (hoopX + hoopGateWidth * 0.5 - petX - petWidth * 0.5) + direction * 38
+        hoopGlow = 0.3
+        animal.sniffRotation = hoopSuccess ? 0 : direction * -8
+        idleFrame = hoopSuccess ? 7 : 2
+        storyDelay(hoopSuccess ? 480 : 280)
+      } else if (stage === 5) {
+        hoopOpacity = 0
+        hoopGlow = 0
+        animal.sniffRotation = 0
+        if (!hoopSuccess) finishStoryIntoSlip()
+        else { commitStoryTravel(); storyDelay(360) }
+      } else finishStory()
     } else finishStory()
+  }
+  function commitStoryTravel() {
+    if (storyPetOffset === 0) return
+    petX = clampX(petX + storyPetOffset)
+    storyPetOffset = 0
+  }
+  function finishStoryIntoSlip() {
+    var notes = storyName === "sumo-pebble"
+      ? "Challenged a pebble to sumo. The pebble won."
+      : storyName === "cannon"
+      ? "Launched from a bar-lane cannon. Landing negotiations failed."
+      : storyName === "fire-hoop"
+      ? "Misjudged a flame gate. Singed dignity."
+      : "Attempted the hoop. Physics filed a complaint."
+    rememberEvent(notes, 2)
+    commitStoryTravel()
+    resetStoryVisuals()
+    storyName = ""
+    episodeName = ""
+    saveState()
+    if (!reducedMotion && isPenguin) startSlip()
+    else beginIdleRoutine()
   }
   function cancelStory() {
     resetStoryVisuals(); storyQueued = ""; storyName = ""; storyStage = 0
@@ -1074,7 +1736,7 @@ Item {
   function cancelHomeStory() {
     homeMomentTimer.stop(); homeStoryName = ""; homeStoryStage = 0
     homePoseFrame = 0
-    storyPropGlyph = ""; storyPropOpacity = 0; storyPropScale = 1; storyPropRotation = 0
+    clearStoryProp()
     den.rustleRotation = 0
   }
   function finishHomeStory() { cancelHomeStory(); schedulePeek(); scheduleSleepMarker() }
@@ -1093,27 +1755,27 @@ Item {
       else if (stage === 3) { den.rustleRotation = 0; homeStoryDelay(420) }
       else finishHomeStory()
     } else if (homeStoryName === "dream") {
-      if (stage === 0) { storyPropGlyph = "·"; storyPropX = homeX + petWidth - 5; storyPropY = 10; storyPropOpacity = 0.45; storyPropScale = 0.7; homeStoryDelay(650) }
-      else if (stage === 1) { storyPropGlyph = "○"; storyPropX += 7; storyPropY = 5; storyPropOpacity = 0.8; storyPropScale = 0.9; homeStoryDelay(800) }
-      else if (stage === 2) { storyPropGlyph = "z"; storyPropX += 6; storyPropY = 1; storyPropOpacity = 0.9; storyPropScale = 1.05; homeStoryDelay(900) }
-      else if (stage === 3) { storyPropOpacity = 0; homeStoryDelay(400) }
+      if (stage === 0) { setStoryProp("firefly", homeX + petWidth - 5, Math.round(habitat.height * 0.4), 0.45, 0.7); homeStoryDelay(650) }
+      else if (stage === 1) { storyPropKind = "bubble"; storyPropX += 7; storyPropY = Math.round(habitat.height * 0.3); storyPropOpacity = 0.8; storyPropScale = 0.9; homeStoryDelay(800) }
+      else if (stage === 2) { storyPropKind = "dots"; storyPropX += 6; storyPropY = Math.round(habitat.height * 0.22); storyPropOpacity = 0.9; storyPropScale = 1.05; homeStoryDelay(900) }
+      else if (stage === 3) { clearStoryProp(); homeStoryDelay(400) }
       else finishHomeStory()
     } else if (homeStoryName === "nest-tidy") {
-      if (stage === 0) { storyPropGlyph = favoriteItem === "pebbles" ? "●" : favoriteItem === "leaves" ? "◆" : favoriteItem === "stars" ? "✦" : "·"; storyPropX = homeX + petWidth - 8; storyPropY = 18; storyPropOpacity = 0.8; den.rustleRotation = -1.8; homeStoryDelay(480) }
+      if (stage === 0) { setStoryProp(favoriteItem === "pebbles" ? "pebble" : favoriteItem === "leaves" ? "leaf" : favoriteItem === "stars" ? "star" : "firefly", homeX + petWidth - 8, barPropY(), 0.85, 1); den.rustleRotation = -1.8; homeStoryDelay(480) }
       else if (stage === 1) { storyPropX += 9; storyPropRotation = 80; den.rustleRotation = 1.8; homeStoryDelay(520) }
-      else if (stage === 2) { storyPropX -= 5; storyPropOpacity = 0; den.rustleRotation = -0.8; homeStoryDelay(450) }
+      else if (stage === 2) { storyPropX -= 5; clearStoryProp(); den.rustleRotation = -0.8; homeStoryDelay(450) }
       else finishHomeStory()
     } else if (homeStoryName === "night-dream") {
-      if (stage === 0) { storyPropGlyph = "✦"; storyPropX = homeX + petWidth + 2; storyPropY = 3; storyPropOpacity = 0.25; storyPropScale = 0.65; homeStoryDelay(750) }
+      if (stage === 0) { setStoryProp("star", homeX + petWidth + 2, Math.round(habitat.height * 0.22), 0.35, 0.7); homeStoryDelay(750) }
       else if (stage === 1) { storyPropOpacity = 0.95; storyPropScale = 1.2; homeStoryDelay(1100) }
       else if (stage === 2) { storyPropOpacity = 0.4; storyPropScale = 0.8; homeStoryDelay(850) }
-      else if (stage === 3) { storyPropOpacity = 0; homeStoryDelay(420) }
+      else if (stage === 3) { clearStoryProp(); homeStoryDelay(420) }
       else finishHomeStory()
     } else finishHomeStory()
   }
   function curlUp() {
     cancelStory(); cancelHomeStory()
-    action = "home"; journeyPhase = "home"; petX = doorwayX; poseFrame = 0; pokeCount = 0
+    action = "home"; journeyPhase = "home"; petX = homeX; poseFrame = 0; pokeCount = 0
     sleepFrame = 0; idleBeatsRemaining = 0; outingActsRemaining = 0; playfulQueued = false; retreatQueued = false; clockQueued = false; slipQueued = false
     episodeName = ""; clockTransit = false; clockTransitEpisode = ""; clockStyle = ""; clockChaseItem = ""; animalOpacity = 1; discoveryVisible = false; discoveryItem = ""; toyVx = 0; toyFumblePending = false; toyEdgeHits = 0; personalityMood = "sleepy"
     animal.sniffRotation = 0; animal.hopOffset = 0; animal.breathScale = 1
@@ -1122,7 +1784,7 @@ Item {
   function goHomeGracefully() {
     // Prefer a visible walk home so he does not vanish mid-bar and pop into the nest.
     if (sleeping || barHidden || !placed) { goToSleep(); return }
-    if (Math.abs(petX - doorwayX) < 28) { goToSleep(); return }
+    if (Math.abs(petX - homeX) < 32) { beginEntering(); return }
     close()
     storyQueued = ""
     episodeName = ""
@@ -1145,6 +1807,7 @@ Item {
   }
   function poke() {
     if (snoozed) cancelSnooze()
+    if (sleeping && rustling) forceWake()
     var now = Date.now()
     pokeCount = now - lastPoke < 2200 ? Math.min(3, pokeCount + 1) : 1; lastPoke = now
     totalPokes++; saveState()
@@ -1179,6 +1842,23 @@ Item {
       startSlide()
     } else if (pokeCount >= 2) {
       playfulAnimation.restart()
+    } else if (!reducedMotion && activityLevel === 2 && Math.random() < 0.14) {
+      var stunts = []
+      if (episodeReady("fire-hoop")) stunts.push("fire-hoop")
+      if (leavesFound > 0 && episodeReady("parade-leaf")) stunts.push("parade-leaf")
+      if (pebblesFound > 0 && episodeReady("sumo-pebble")) stunts.push("sumo-pebble")
+      if (episodeReady("cannon")) stunts.push("cannon")
+      if (leavesFound > 0 && episodeReady("rain-umbrella")) stunts.push("rain-umbrella")
+      if (episodeReady("fishing")) stunts.push("fishing")
+      if (episodeReady("sneeze")) stunts.push("sneeze")
+      if (episodeReady("zoomies")) stunts.push("zoomies")
+      if (stunts.length > 0) {
+        var pick = stunts[Math.floor(Math.random() * stunts.length)]
+        queueEpisode(pick)
+        if (storyQueued === pick) startQueuedStory()
+      } else if (Math.random() < 0.55) {
+        playfulAnimation.restart()
+      }
     } else if (!reducedMotion && Math.random() < 0.55) {
       var antic = Math.floor(Math.random() * 6)
       if (antic === 0 && isPenguin) startSlip()
@@ -1217,7 +1897,7 @@ Item {
     var cleaned = ({})
     if (!raw || typeof raw !== "object") return cleaned
     var now = Date.now()
-    var names = ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen"]
+    var names = ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen", "fire-hoop", "parade-leaf", "sumo-pebble", "cannon", "rain-umbrella", "fishing", "sneeze", "zoomies"]
     for (var index = 0; index < names.length; index++) {
       var timestamp = safeTimestamp(raw[names[index]], now + 60000)
       if (timestamp > 0) cleaned[names[index]] = timestamp
@@ -1225,7 +1905,7 @@ Item {
     return cleaned
   }
   function episodeNames() {
-    return ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen"]
+    return ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen", "fire-hoop", "parade-leaf", "sumo-pebble", "cannon", "rain-umbrella", "fishing", "sneeze", "zoomies"]
   }
   function cleanRecentEpisodes(raw) {
     var cleaned = []
@@ -1284,7 +1964,7 @@ Item {
       episodeCounts = cleanEpisodeCounts(data.episodeCounts)
       repeatAvoided = safeCounter(data.repeatAvoided)
       var storedEpisode = String(data.lastDirectedEpisode || "")
-      lastDirectedEpisode = ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen"].indexOf(storedEpisode) >= 0 ? storedEpisode : ""
+      lastDirectedEpisode = ["clock", "discovery", "slide", "slip", "retreat", "edge-watch", "firefly", "polish", "leaf-toss", "stargaze", "collection-sort", "stretch", "lost-pebble", "listen", "fire-hoop", "parade-leaf", "sumo-pebble", "cannon", "rain-umbrella", "fishing", "sneeze", "zoomies"].indexOf(storedEpisode) >= 0 ? storedEpisode : ""
       lastDirectedEpisodeAt = safeTimestamp(data.lastDirectedEpisodeAt, Date.now() + 60000)
       var storedActivity = Number(data.activity)
       activityLevel = isNaN(storedActivity) ? 1 : Math.max(0, Math.min(2, storedActivity))
@@ -1371,6 +2051,102 @@ Item {
     panelOpen = true
     markGestureHint()
   }
+  function stageMidBar() {
+    petX = devPreviewX(0.4)
+    faceDevPreview()
+  }
+  function forceWake() {
+    if (snoozed) cancelSnooze()
+    cancelHomeStory()
+    sleepMarkerTimer.stop()
+    deepSleeping = false
+    peeking = false
+    rustling = false
+    rustleWatchdog.stop()
+    rustleAnimation.stop()
+    peekAnimation.stop()
+    den.rustleRotation = 0
+    pendingInteractiveWake = false
+    chaseTargetX = -1
+    journeyPhase = "outbound"
+    if (personalityMood === "sleepy") personalityMood = "playful"
+    action = "idleAction"
+    idleFrame = 7
+    poseFrame = 0
+    walkFrame = 0
+    animal.sniffRotation = 0
+    animal.hopOffset = 0
+    animalOpacity = 1
+  }
+  function prepareDevStage() {
+    // Stop whatever he is doing — position is chosen per dev trigger, away from the clock.
+    cancelStory(); cancelHomeStory()
+    walkMotion.stop(); curiosityAnimation.stop(); acknowledgeAnimation.stop(); playfulAnimation.stop()
+    rustleAnimation.stop(); settleTurn.stop(); poseTimer.stop()
+    slideMotion.stop(); slideTimer.stop(); slipMotion.stop(); slipTimer.stop()
+    clockApproach.stop(); clockOcclusion.stop(); clockTransitOcclusion.stop()
+    idleActionTimer.stop(); idleBlendAnimation.stop(); idleTransitionMotion.stop()
+    roamTimer.stop(); peekTimer.stop()
+    storyPetOffset = 0
+    storyPetInFront = false
+    animal.hopOffset = 0
+    animal.sniffRotation = 0
+    animalOpacity = 1
+    hoopVisible = false; hoopOpacity = 0; hoopGlow = 0
+    cannonVisible = false; cannonOpacity = 0; cannonFlash = false
+    clearHeadProp()
+    discoveryVisible = false; discoveryItem = ""; toyVx = 0
+    clockTransit = false; clockStyle = ""; clockChaseItem = ""
+    playfulQueued = false; retreatQueued = false; clockQueued = false; slipQueued = false
+    storyQueued = ""; storyName = ""; storyStage = 0
+    peeking = false; deepSleeping = false
+    personalityMood = "playful"
+    // Dev triggers must work even when he is sleeping, snoozed, or stuck mid-episode.
+    forceWake()
+  }
+  function runDevTrigger(name) {
+    // Keep the Dev panel open so you can fire the next action immediately.
+    panelOpen = true
+    devPanelOpen = true
+    prepareDevStage()
+    petX = stageForDevTrigger(name)
+    faceDevPreview()
+    if (name === "slip") { startSlip(); return }
+    if (name === "slide") { startSlide(); return }
+    if (name === "clock") { startClockEpisode(false, "bold"); return }
+    if (name === "magic") { startClockEpisode(false, "magic"); return }
+    if (name === "retreat") { startClockEpisode(true); return }
+    if (name === "discover") {
+      // Dev-only: spawn a rolling pebble toy (normal gameplay find).
+      discoveryItem = "pebble"
+      discoveryX = Math.max(4, Math.min(trackLength - 12, petX + (direction > 0 ? petWidth + 10 : -14)))
+      toyHop = 0; toySpin = 0; toyBumps = 0; toyVx = 0; toyEdgeHits = 0
+      discoveryVisible = true
+      episodeName = "discovery"
+      if (!reducedMotion) toyIdleBounce.restart()
+      rememberEvent("Dev: dropped a rolling pebble to chase.", 0)
+      beginIdleRoutine()
+      return
+    }
+    if (!isStory(name)) return
+    // Unlock collection gates so leaf/pebble stories are testable.
+    if ((name === "parade-leaf" || name === "rain-umbrella" || name === "leaf-toss") && leavesFound < 1)
+      leavesFound = 1
+    if ((name === "sumo-pebble" || name === "polish" || name === "lost-pebble") && pebblesFound < 1)
+      pebblesFound = 1
+    if (name === "collection-sort" && collectionSize() < 3) {
+      pebblesFound = Math.max(pebblesFound, 1)
+      leavesFound = Math.max(leavesFound, 1)
+      starsFound = Math.max(starsFound, 1)
+    }
+    storyName = name
+    storyQueued = ""
+    storyStage = 0
+    episodeName = name
+    action = "idleAction"
+    idleFrame = 1
+    advanceStory()
+  }
   function openCare() {
     // Alias — single flat panel; kept for IPC compatibility.
     openJournal()
@@ -1381,7 +2157,7 @@ Item {
     if (sleeping && !rustling && !snoozed && !reducedMotion) {
       den.rustleRotation = personalityMood === "playful" ? 2.8 : (gestureHintShown ? 1.4 : 2.0)
       if (collectionSize() >= 8 && Math.random() < 0.12)
-        rememberEvent("Stirred at a familiar touch near the nest.", 0)
+        rememberEvent("Stirred at a familiar touch near his sleep spot.", 0)
       hoverStirTimer.restart()
     } else if (!sleeping && !posing && !walking && !reducedMotion) {
       var lean = direction * (curiousCursor ? 10 : 6)
@@ -1412,7 +2188,7 @@ Item {
     }
   }
   function scootAlongBar(deltaX, durationScale) {
-    if (auditioning || posing || storyName !== "" || snoozed) return false
+    if (auditioning || posing || storyName !== "" || snoozed || activityLevel === 0) return false
     var scoot = clampX(petX + deltaX)
     if (Math.abs(scoot - petX) < 10) return false
     walkMotion.stop()
@@ -1437,33 +2213,36 @@ Item {
     if (Math.abs(delta) < 10) { curiousLean = 0; return }
     var lean = Math.max(-1, Math.min(1, delta / 90))
     curiousLean = lean
+    // Quiet: look / rustle only. Normal: small scoots while awake. Lively: nest-wake + chase.
+    var mayChase = activityLevel > 0 && !snoozed
+    var lively = activityLevel === 2
+    var scootGap = lively ? 900 : 1800
     flipPlayMoodMaybe()
     var chaseSign = playMood >= 0 ? 1 : -1
     if (sleeping && !rustling && !snoozed) {
-      den.rustleRotation = lean * 4.0
+      den.rustleRotation = lean * (lively ? 4.0 : 2.2)
       direction = lean >= 0 ? 1 : -1
-      // Navbar-cat style: wake and come toward the pointer when it enters the nest zone.
-      if (Math.abs(delta) < 150 && Date.now() - lastCuriousScootAt > 1600) {
+      if (lively && Math.abs(delta) < 150 && Date.now() - lastCuriousScootAt > 1600) {
         lastCuriousScootAt = Date.now()
         chaseTargetX = clampX(targetX - petWidth * 0.5)
         wakeAndWalk(true)
       }
     } else if (!sleeping && !walking) {
-      animal.sniffRotation = lean * 14
-      animal.hopOffset = -1.6
+      animal.sniffRotation = lean * (lively ? 14 : 9)
+      animal.hopOffset = lively ? -1.6 : -1.0
       direction = (chaseSign * lean) >= 0 ? 1 : -1
-      if (Math.abs(delta) > 28 && activityLevel > 0 && !snoozed
-          && Date.now() - lastCuriousScootAt > 900) {
+      if (mayChase && Math.abs(delta) > (lively ? 28 : 44)
+          && Date.now() - lastCuriousScootAt > scootGap) {
         lastCuriousScootAt = Date.now()
-        var dash = Math.min(110, Math.max(42, Math.abs(delta) * 0.62)) * chaseSign * (lean >= 0 ? 1 : -1)
-        if (scootAlongBar(dash, 3.2) && Math.random() < 0.28)
+        var dashScale = lively ? 0.62 : 0.38
+        var dash = Math.min(lively ? 110 : 62, Math.max(lively ? 42 : 24, Math.abs(delta) * dashScale)) * chaseSign * (lean >= 0 ? 1 : -1)
+        if (scootAlongBar(dash, lively ? 3.2 : 4.4) && Math.random() < (lively ? 0.28 : 0.12))
           rememberEvent(playMood >= 0 ? "Chased the pointer along the bar." : "Bolted away from the pointer.", 0)
       }
-    } else if (walking && Math.abs(delta) > 34 && Date.now() - lastCuriousScootAt > 1100
-               && activityLevel > 0 && !snoozed) {
+    } else if (walking && mayChase && Math.abs(delta) > (lively ? 34 : 52)
+               && Date.now() - lastCuriousScootAt > (lively ? 1100 : 2000)) {
       lastCuriousScootAt = Date.now()
-      // Steer the current walk toward / away from the pointer instead of a tiny sidestep.
-      if (playMood >= 0 && Math.abs(delta) > 56) {
+      if (lively && playMood >= 0 && Math.abs(delta) > 56) {
         walkMotion.stop()
         var toward = clampX(petX + Math.min(120, Math.max(48, Math.abs(delta) * 0.55)) * (lean >= 0 ? 1 : -1))
         if (Math.abs(toward - petX) > 10) {
@@ -1477,8 +2256,8 @@ Item {
           walkMotion.restart()
         }
       } else {
-        var step = Math.min(96, Math.max(44, Math.abs(delta) * 0.48)) * chaseSign * (lean >= 0 ? 1 : -1)
-        scootAlongBar(step, 3.0)
+        var step = Math.min(lively ? 96 : 54, Math.max(lively ? 44 : 22, Math.abs(delta) * (lively ? 0.48 : 0.32))) * chaseSign * (lean >= 0 ? 1 : -1)
+        scootAlongBar(step, lively ? 3.0 : 4.2)
       }
     }
   }
@@ -1620,8 +2399,14 @@ Item {
     id: poseTimer; repeat: true
     onTriggered: {
       if (root.action === "emerging") {
-        if (root.isPenguin && root.poseFrame > 0) { root.poseFrame--; root.petX += 8 }
-        else if (root.isPenguin) { stop(); root.planRoute() }
+        if (root.isPenguin && root.poseFrame > 0) {
+          root.poseFrame--
+          root.petX = root.homeX + (3 - root.poseFrame) * 3
+        } else if (root.isPenguin) {
+          stop()
+          if (root.storyQueued === "cannon") root.startQueuedStory()
+          else root.planRoute()
+        }
         else if (root.poseFrame < 7) { root.poseFrame++; root.petX += 4; interval = root.poseFrame < 2 ? 210 : 135 }
         else { stop(); root.planRoute() }
       } else if (root.action === "starting") {
@@ -1631,7 +2416,8 @@ Item {
         if (root.poseFrame < 3) root.poseFrame++
         else { stop(); if (root.playfulQueued) { root.playfulQueued = false; root.startSlide() } else root.finishStoppedLeg() }
       } else if (root.action === "settling") {
-        if (root.poseFrame < 3) { root.poseFrame++; root.petX -= 8 }
+        // In-place tuck at homeX so the sleep den appears where he already is.
+        if (root.poseFrame < 3) root.poseFrame++
         else { stop(); root.storeDiscovery(); root.curlUp() }
       } else if (root.action === "entering") {
         if (root.poseFrame > 0) { root.poseFrame--; root.petX -= 4 }
@@ -1651,6 +2437,15 @@ Item {
     }
   }
 
+  Timer {
+    id: rustleWatchdog
+    interval: 1800
+    repeat: false
+    onTriggered: {
+      if (root.rustling && root.sleeping)
+        root.forceWake()
+    }
+  }
   Timer {
     id: pokeCueTimer
     interval: 1600
@@ -1732,23 +2527,38 @@ Item {
   }
   SequentialAnimation {
     id: clockOcclusion
+    ScriptAction {
+      script: {
+        if (root.clockStyle === "magic") {
+          root.episodeName = "clock-magic"
+          root.setStoryProp("bang", root.petX + root.petWidth * 0.35, root.barPropY() - 2, 1, 1.1)
+        }
+      }
+    }
     ParallelAnimation {
-      NumberAnimation { target: root; property: "petX"; to: root.passageRightX - root.petWidth * 0.48; duration: 270; easing.type: Easing.InCubic }
       NumberAnimation { target: root; property: "animalOpacity"; to: 0; duration: 235; easing.type: Easing.InCubic }
     }
     ScriptAction {
       script: {
-        root.direction = -1
-        root.petX = root.passageLeftX - root.petWidth * 0.42
-        root.idleFrame = (root.clockStyle === "shy" || root.episodeName === "clock-retreat") ? 0 : 1
-        root.action = "clockPeek"
+        root.clearStoryProp()
+        if (root.clockStyle === "magic") {
+          root.direction = -1
+          root.petX = root.magicWrongPeekX()
+          root.idleFrame = 2
+          root.action = "clockPeek"
+          root.setStoryProp("bang", root.petX + root.petWidth * 0.4, root.barPropY() - 3, 0.95, 1)
+        } else {
+          root.direction = -1
+          root.petX = root.clockClearLeftX()
+          root.idleFrame = (root.clockStyle === "shy" || root.episodeName === "clock-retreat") ? 0 : 1
+          root.action = "clockPeek"
+        }
         if (root.clockStyle === "chase" && root.discoveryVisible)
           root.discoveryVisible = false
       }
     }
     ParallelAnimation {
       NumberAnimation { target: root; property: "animalOpacity"; to: 1; duration: 300; easing.type: Easing.OutCubic }
-      NumberAnimation { target: root; property: "petX"; to: root.passageLeftX - root.petWidth - 12; duration: 390; easing.type: Easing.OutCubic }
     }
     PauseAnimation { duration: root.clockPeekHoldMs }
     SequentialAnimation {
@@ -1757,8 +2567,7 @@ Item {
       NumberAnimation { target: animal; property: "sniffRotation"; to: 4; duration: 130; easing.type: Easing.InOutSine }
       NumberAnimation { target: animal; property: "sniffRotation"; to: -2; duration: 90; easing.type: Easing.InOutSine }
     }
-    // Bold / chase: a second peek a little farther out.
-    PauseAnimation { duration: root.clockStyle === "bold" || root.clockStyle === "chase" ? 160 : 1 }
+    PauseAnimation { duration: root.clockStyle === "bold" || root.clockStyle === "chase" ? 160 : (root.clockStyle === "magic" ? 200 : 1) }
     ScriptAction {
       script: {
         if (root.clockStyle === "bold" || root.clockStyle === "chase") {
@@ -1766,18 +2575,38 @@ Item {
           animal.hopOffset = -1.8
         } else if (root.clockStyle === "tumble") {
           animal.sniffRotation = 8
+        } else if (root.clockStyle === "magic") {
+          animal.sniffRotation = -10
+          animal.hopOffset = 1
+          root.idleFrame = 0
+          root.setStoryProp("dots", root.petX + root.petWidth + 4, root.barPropY() - 6, 0.85, 1)
         }
       }
     }
-    PauseAnimation { duration: root.clockStyle === "bold" || root.clockStyle === "chase" ? 380 : (root.clockStyle === "tumble" ? 520 : 40) }
-    ScriptAction { script: { animal.hopOffset = 0; animal.sniffRotation = 0 } }
+    PauseAnimation { duration: root.clockStyle === "bold" || root.clockStyle === "chase" ? 380 : (root.clockStyle === "tumble" ? 520 : (root.clockStyle === "magic" ? 640 : 40)) }
+    ScriptAction { script: { animal.hopOffset = 0; animal.sniffRotation = 0; if (root.clockStyle === "magic") root.clearStoryProp() } }
     ParallelAnimation {
       NumberAnimation { target: animal; property: "sniffRotation"; to: 0; duration: 120; easing.type: Easing.OutCubic }
       NumberAnimation { target: root; property: "animalOpacity"; to: 0; duration: 190; easing.type: Easing.InCubic }
-      NumberAnimation { target: root; property: "petX"; to: root.passageLeftX - root.petWidth * 0.42; duration: 320; easing.type: Easing.InCubic }
     }
-    ScriptAction { script: { root.petX = root.passageRightX + 3; root.direction = 1; root.action = "clockHidden" } }
+    ScriptAction {
+      script: {
+        if (root.clockStyle === "magic") {
+          root.petX = root.magicEmergeX()
+          root.direction = 1
+          root.action = "idleAction"
+          root.idleFrame = 7
+          root.setStoryProp("bang", root.petX + root.petWidth * 0.25, root.barPropY() - 4, 1, 1.2)
+        } else {
+          root.petX = root.clockClearRightX()
+          root.direction = 1
+          root.action = "clockPeek"
+          root.idleFrame = 7
+        }
+      }
+    }
     NumberAnimation { target: root; property: "animalOpacity"; to: 1; duration: 230; easing.type: Easing.OutCubic }
+    PauseAnimation { duration: root.clockStyle === "magic" ? 520 : 1 }
     ScriptAction { script: root.finishClockEpisode() }
   }
   SequentialAnimation {
@@ -1859,6 +2688,11 @@ Item {
     NumberAnimation { target: den; property: "rustleRotation"; to: -1.5; duration: 90; easing.type: Easing.InOutQuad }
     NumberAnimation { target: den; property: "rustleRotation"; to: 0; duration: 100; easing.type: Easing.OutQuad }
     ScriptAction { script: root.beginEmergence(root.pendingInteractiveWake) }
+    onStopped: {
+      root.rustleWatchdog.stop()
+      if (root.rustling && root.sleeping)
+        root.beginEmergence(root.pendingInteractiveWake)
+    }
   }
   SequentialAnimation {
     id: curiosityAnimation
@@ -1998,7 +2832,8 @@ Item {
   IpcHandler {
     target: root.pluginId
     function pet(): void { root.poke() }
-    function roam(): void { root.wakeAndWalk(true) }
+    function roam(): void { root.forceWake(); root.wakeAndWalk(true) }
+    function wake(): void { root.forceWake() }
     function explore(): void { root.inviteExplore() }
     function sleep(): void { root.goToSleep() }
     function slip(): void {
@@ -2027,9 +2862,10 @@ Item {
       root.wakeAndWalk(true)
     }
     function preview(name: string): void {
-      if (!root.isStory(name)) return
-      root.goToSleep(); roamTimer.stop(); peekTimer.stop()
-      root.storyQueued = name; root.episodeName = name; root.startQueuedStory()
+      root.runDevTrigger(name)
+    }
+    function dev(name: string): void {
+      root.runDevTrigger(name)
     }
     function home(name: string): void {
       if (["wake-look", "preen", "dream", "nest-tidy", "night-dream"].indexOf(name) < 0) return
@@ -2075,11 +2911,46 @@ Item {
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     anchors { top: root.barPosition !== "bottom"; bottom: root.barPosition === "bottom"; left: true; right: true }
     implicitHeight: root.barSize
+    // Mask = penguin box, extended vertically for tall props. Never widen into a bar-punching strip.
+    readonly property rect companionMask: {
+      var x, y, r, b
+      if (root.auditioning) {
+        x = conceptPet.x; y = conceptPet.y
+        r = x + conceptPet.width; b = y + conceptPet.height
+      } else if (root.sleeping) {
+        x = den.x; y = den.y
+        r = x + den.width * den.scale; b = y + den.height * den.scale
+      } else {
+        x = animal.x; y = animal.y
+        r = x + animal.width; b = y + animal.height
+        if (root.headPropKind !== "")
+          y = Math.min(y, animal.y - 11 * root.headPropScale)
+        if (root.cannonVisible) {
+          b = Math.max(b, root.cannonY + root.cannonDrawH())
+          x = Math.min(x, root.cannonX)
+          r = Math.max(r, root.cannonX + root.cannonDrawW())
+        }
+        if (root.hoopVisible) {
+          b = Math.max(b, root.hoopY + 12 * root.hoopScale)
+          x = Math.min(x, root.hoopX)
+          r = Math.max(r, root.hoopX + root.hoopGateWidth * root.hoopScale)
+        }
+        if (root.storyPropKind !== "" && root.storyPropOpacity > 0) {
+          y = Math.min(y, storyProp.y)
+          b = Math.max(b, storyProp.y + storyProp.height)
+        }
+        if (root.discoveryVisible && root.discoveryItem !== "") {
+          y = Math.min(y, discoveryToy.y)
+          b = Math.max(b, discoveryToy.y + discoveryToy.height)
+        }
+      }
+      return Qt.rect(x - 1, y - 1, r - x + 2, b - y + 2)
+    }
     mask: Region {
-      x: Math.round(root.auditioning ? conceptPet.x : root.sleeping ? den.x : animal.x)
-      y: Math.round(root.auditioning ? conceptPet.y : root.sleeping ? den.y : animal.y)
-      width: Math.round(root.auditioning ? conceptPet.width : root.sleeping ? den.width * den.scale : animal.width)
-      height: Math.round(root.auditioning ? conceptPet.height : root.sleeping ? den.height * den.scale : animal.height)
+      x: Math.round(habitat.companionMask.x)
+      y: Math.round(habitat.companionMask.y)
+      width: Math.round(habitat.companionMask.width)
+      height: Math.round(habitat.companionMask.height)
     }
 
     Item {
@@ -2125,7 +2996,7 @@ Item {
       }
       MouseArea {
         anchors.fill: parent
-        enabled: root.sleeping && !root.rustling
+        enabled: root.sleeping
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
@@ -2161,76 +3032,64 @@ Item {
       }
     }
 
-    Item {
+    PropArt {
       id: discoveryToy
       x: root.discoveryX
       y: Math.round((habitat.height - height) / 2 + 4 + root.toyHop)
-      width: 10
-      height: 10
-      visible: root.discoveryVisible && !root.auditioning
+      kind: root.discoveryItem
+      artScale: 1
+      visible: root.discoveryVisible && !root.auditioning && root.discoveryItem !== ""
       rotation: root.toySpin
       opacity: 0.95
       z: 1
       Behavior on x { enabled: root.discoveryVisible && !root.reducedMotion && Math.abs(root.toyVx) < 2.5; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+    }
 
-      // Pebble — little ball
-      Rectangle {
-        visible: root.discoveryItem === "pebble"
-        anchors.centerIn: parent
-        width: 8; height: 8; radius: 4
-        color: Color.accent
-        opacity: 0.95
+    Item {
+      id: fireHoop
+      x: root.hoopX
+      y: root.hoopY
+      width: root.hoopGateWidth
+      height: 10
+      visible: root.hoopVisible && !root.auditioning
+      opacity: root.hoopOpacity
+      scale: root.hoopScale
+      z: 3
+      transformOrigin: Item.Center
+      Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+      Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.OutBack } }
+      Behavior on x { enabled: root.hoopVisible; NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+
+      PropArt { x: 0; y: 1; kind: "gate-post"; artScale: 1; opacity: root.hoopOpacity }
+      PropArt {
+        x: 4; y: 0; kind: "gate-flame"; artScale: 1
+        opacity: (0.55 + root.hoopGlow * 0.45) * root.hoopOpacity
       }
-      // Leaf — tilted diamond
-      Rectangle {
-        visible: root.discoveryItem === "leaf"
-        anchors.centerIn: parent
-        width: 7; height: 7
-        rotation: 45
-        color: Color.accent
-        opacity: 0.92
+      PropArt {
+        x: root.hoopGateWidth - 14; y: 0; kind: "gate-flame"; artScale: 1
+        opacity: (0.55 + root.hoopGlow * 0.45) * root.hoopOpacity
       }
-      // Star — accent spark with a smaller core
-      Item {
-        visible: root.discoveryItem === "star"
-        anchors.centerIn: parent
-        width: 10; height: 10
-        Rectangle {
-          anchors.centerIn: parent
-          width: 8; height: 2.2; radius: 1
-          color: Color.accent
-        }
-        Rectangle {
-          anchors.centerIn: parent
-          width: 2.2; height: 8; radius: 1
-          color: Color.accent
-        }
-        Rectangle {
-          anchors.centerIn: parent
-          width: 3.2; height: 3.2; radius: 1.6
-          color: Color.bar.text
-          opacity: 0.85
-        }
+      PropArt {
+        x: root.hoopGateWidth - 4; y: 1; kind: "gate-post"; artScale: 1
+        opacity: root.hoopOpacity
       }
     }
 
-    Text {
+    PropArt {
       id: storyProp
       x: root.storyPropX
       y: root.storyPropY
-      visible: root.storyPropGlyph !== "" && !root.auditioning
-      text: root.storyPropGlyph
-      color: Color.accent
-      font.pixelSize: 8
-      font.bold: true
+      kind: root.storyPropKind
+      artScale: root.storyPropScale
+      visible: root.storyPropKind !== "" && !root.auditioning
       opacity: root.storyPropOpacity
-      scale: root.storyPropScale
       rotation: root.storyPropRotation
       z: 4
+      transformOrigin: Item.Center
       Behavior on x { enabled: root.storyPropOpacity > 0; NumberAnimation { duration: 430; easing.type: Easing.InOutCubic } }
       Behavior on y { enabled: root.storyPropOpacity > 0; NumberAnimation { duration: 360; easing.type: Easing.InOutCubic } }
-      Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.InOutSine } }
-      Behavior on scale { enabled: root.storyPropOpacity > 0; NumberAnimation { duration: 300; easing.type: Easing.InOutSine } }
+      Behavior on opacity { NumberAnimation { duration: 260; easing.type: Easing.OutSine } }
+      Behavior on artScale { enabled: root.storyPropOpacity > 0; NumberAnimation { duration: 300; easing.type: Easing.InOutSine } }
       Behavior on rotation { enabled: root.storyPropOpacity > 0; NumberAnimation { duration: 420; easing.type: Easing.InOutCubic } }
     }
 
@@ -2244,12 +3103,12 @@ Item {
       width: root.petWidth; height: root.petHeight; rotation: sniffRotation; scale: breathScale * root.slideVisualScale
       visible: !root.sleeping
       opacity: root.animalOpacity
-      z: 2
+      z: root.cannonVisible && root.storyName === "cannon" ? 8 : (root.storyPetInFront ? 6 : 2)
       transform: Scale { origin.x: animal.width / 2; origin.y: animal.height / 2; xScale: root.direction }
 
       component PetImage: Image {
         anchors.fill: parent; fillMode: Image.PreserveAspectFit; smooth: false; mipmap: false; cache: true
-        layer.enabled: true
+        layer.enabled: root.petRenderLayer
         layer.effect: MultiEffect {
           brightness: root.petBrightness
           colorization: root.petColorization
@@ -2287,32 +3146,24 @@ Item {
           : root.walking ? Qt.resolvedUrl(root.speciesBase + "walk/" + root.walkFrame + ".png")
           : Qt.resolvedUrl(root.speciesBase + "idle.png")
       }
-      Item {
+      PropArt {
+        visible: root.headPropKind !== ""
+        kind: root.headPropKind
+        artScale: root.headPropScale
+        rotation: root.headPropRotation
+        x: animal.width * 0.30 - width / 2
+        y: -height + 5
+        z: 6
+        transformOrigin: Item.Bottom
+        Behavior on rotation { NumberAnimation { duration: 320; easing.type: Easing.InOutSine } }
+      }
+      PropArt {
         visible: root.carriedItem !== "" && root.journeyPhase === "returning"
-        x: animal.width - 9
-        y: animal.height - 12
-        width: 8
-        height: 8
+        x: animal.width - 12
+        y: animal.height - 14
+        kind: root.carriedItem
+        artScale: 0.85
         z: 4
-        Rectangle {
-          visible: root.carriedItem === "pebble"
-          anchors.centerIn: parent
-          width: 6; height: 6; radius: 3
-          color: Color.accent
-        }
-        Rectangle {
-          visible: root.carriedItem === "leaf"
-          anchors.centerIn: parent
-          width: 5; height: 5; rotation: 45
-          color: Color.accent
-        }
-        Item {
-          visible: root.carriedItem === "star"
-          anchors.centerIn: parent
-          width: 8; height: 8
-          Rectangle { anchors.centerIn: parent; width: 7; height: 1.8; radius: 1; color: Color.accent }
-          Rectangle { anchors.centerIn: parent; width: 1.8; height: 7; radius: 1; color: Color.accent }
-        }
       }
       MouseArea {
         anchors.fill: parent
@@ -2321,6 +3172,47 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         onClicked: function(mouse) { root.handlePetClick(mouse.button) }
         onContainsMouseChanged: root.onPetHover(containsMouse)
+      }
+    }
+
+    Item {
+      id: cannonProp
+      x: root.cannonX
+      y: root.cannonY
+      width: root.cannonDrawW()
+      height: root.cannonDrawH()
+      visible: root.cannonVisible && !root.auditioning
+      opacity: root.cannonOpacity
+      z: root.cannonVisible && root.storyName === "cannon" ? 1 : (root.storyPetInFront ? 2 : 8)
+      transformOrigin: root.direction > 0 ? Item.Left : Item.Right
+      transform: Scale {
+        origin.x: root.direction > 0 ? 0 : cannonProp.width
+        origin.y: cannonProp.height
+        xScale: root.direction
+        yScale: 1
+      }
+      Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+
+      PropArt {
+        kind: "cannon"
+        artScale: root.cannonArtScale
+        anchors.bottom: parent.bottom
+        x: 0
+      }
+      PropArt {
+        kind: "flash"
+        visible: root.cannonFlash
+        artScale: root.cannonArtScale
+        // Local right = muzzle (parent Scale flips with direction).
+        x: parent.width - 10 * root.cannonArtScale
+        y: Math.round(1 * root.cannonArtScale)
+      }
+      PropArt {
+        kind: "cannonball"
+        visible: root.cannonFlash
+        artScale: root.cannonArtScale
+        x: parent.width - 12 * root.cannonArtScale
+        y: Math.round(0 * root.cannonArtScale)
       }
     }
 
@@ -2366,8 +3258,8 @@ Item {
     bar: root.bar
     owner: root
     open: root.panelOpen
-    contentWidth: fittedContentWidth(340)
-    contentHeight: fittedContentHeight(panelColumn.implicitHeight, 520)
+    contentWidth: fittedContentWidth(root.devPanelOpen ? 380 : 340)
+    contentHeight: fittedContentHeight(panelColumn.implicitHeight, root.devPanelOpen ? 760 : 520)
 
     Column {
       id: panelColumn
@@ -2618,6 +3510,80 @@ Item {
         opacity: 0.72
         font.pixelSize: 12
         wrapMode: Text.WordWrap
+      }
+
+      Rectangle {
+        width: parent.width
+        height: 30
+        radius: 6
+        color: "transparent"
+        border.width: 1
+        border.color: Color.accent
+        Rectangle {
+          anchors.fill: parent; anchors.margins: 1; radius: 5
+          color: Color.accent
+          opacity: root.devPanelOpen ? 0.28 : (devToggle.containsMouse ? 0.14 : 0.06)
+        }
+        Text {
+          anchors.centerIn: parent
+          text: root.devPanelOpen ? "Dev triggers ▴" : "Dev triggers ▾"
+          color: Color.bar.text
+          font.pixelSize: 12
+          font.bold: true
+        }
+        MouseArea {
+          id: devToggle
+          anchors.fill: parent
+          hoverEnabled: true
+          onClicked: root.devPanelOpen = !root.devPanelOpen
+        }
+      }
+
+      Text {
+        visible: root.devPanelOpen
+        width: parent.width
+        text: "Stays open while you test. Wakes him if sleeping. Stages in the open lane (not tray ends)."
+        color: Color.bar.text
+        opacity: 0.65
+        font.pixelSize: 11
+        wrapMode: Text.WordWrap
+      }
+
+      Flow {
+        visible: root.devPanelOpen
+        width: parent.width
+        spacing: 6
+        Repeater {
+          model: root.devTriggers
+          delegate: Rectangle {
+            required property var modelData
+            width: Math.max(58, Math.ceil(devLabel.implicitWidth + 16))
+            height: 28
+            radius: 6
+            color: "transparent"
+            border.width: 1
+            border.color: Color.accent
+            Rectangle {
+              anchors.fill: parent; anchors.margins: 1; radius: 5
+              color: Color.accent
+              opacity: devChip.containsMouse ? 0.30 : 0.10
+            }
+            Text {
+              id: devLabel
+              anchors.centerIn: parent
+              text: modelData.label
+              color: Color.bar.text
+              font.pixelSize: 11
+              font.bold: true
+            }
+            MouseArea {
+              id: devChip
+              anchors.fill: parent
+              hoverEnabled: true
+              onClicked: root.runDevTrigger(modelData.id)
+            }
+          }
+        }
       }
 
       Rectangle {
