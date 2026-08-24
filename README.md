@@ -45,9 +45,11 @@ easy to inspect on GitHub.
 
 ### On a real bar
 
-| At home | Slip | Journal |
+Real-bar stills (Aug 2026, 0.23 panel). Regenerate with `tools/capture-marketplace-screenshots.sh` while Omarchy shell is running.
+
+| At home (Quiet) | Slip | PEBBLE panel |
 |---|---|---|
-| ![Pebble at home](docs/media/discord/01-pebble-at-home.png) | ![Pebble slip](docs/media/discord/02-pebble-slip.png) | ![Pebble journal](docs/media/discord/03-pebble-journal.png) |
+| ![Pebble at home](docs/media/discord/01-pebble-at-home.png) | ![Pebble slip](docs/media/discord/02-pebble-slip.png) | ![Pebble panel](docs/media/discord/03-pebble-journal.png) |
 
 The complete frame sheet is available at
 [`docs/media/pebble-animation-sheet.png`](docs/media/pebble-animation-sheet.png).
@@ -63,7 +65,7 @@ Journal state is stored at
 The panel shows status, latest moment, bond/collections, and care controls in one
 card — no nested pages.
 
-On a new installation, Pebble's first journal note explains that it explores the
+On a new installation, Pebble's first panel note explains that it explores the
 entire bar, rests near the center widgets, and remembers discoveries. There is no
 forced tutorial popup.
 
@@ -95,6 +97,12 @@ Release validation:
 tools/validate-release.sh
 ```
 
+Marketplace stills (local capture only — does not publish):
+
+```sh
+tools/capture-marketplace-screenshots.sh
+```
+
 Optional 24-hour soak (requires a running Omarchy shell):
 
 ```sh
@@ -123,7 +131,8 @@ rm ~/.local/state/omarchy/pebble/state.json
 Pebble's complete data contract is documented in [`PRIVACY.md`](PRIVACY.md),
 artwork provenance in [`ASSET_LICENSES.md`](ASSET_LICENSES.md), and the forward
 plan (Lively spectacle, second resident, optional OS ambient) in
-[`docs/ROADMAP.md`](docs/ROADMAP.md).
+[`docs/ROADMAP.md`](docs/ROADMAP.md). Marketplace listing prep is in
+[`docs/MARKETPLACE.md`](docs/MARKETPLACE.md).
 
 ## License
 

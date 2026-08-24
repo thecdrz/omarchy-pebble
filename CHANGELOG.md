@@ -21,7 +21,7 @@ All notable changes to Pebble are documented here.
 - **Show-and-tell**: Normal+ outing that presents a collected find.
 - Energy contract line in the PEBBLE panel: Quiet sleeps · Normal wanders · Lively shows off.
 - IPC helpers for `care`, `activity`, and `curious`.
-- Bar-local cursor helper `bin/pebble-cursor` and real-bar marketplace screenshots under `docs/media/discord/`.
+- Bar-local cursor helper `bin/pebble-cursor`, marketplace capture script `tools/capture-marketplace-screenshots.sh`, and real-bar screenshots under `docs/media/discord/`.
 
 ### Changed
 
