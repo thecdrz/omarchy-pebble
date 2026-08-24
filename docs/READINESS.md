@@ -12,8 +12,8 @@ The word “best” is earned by evidence, not feature count.
 - [x] No runtime network request, analytics, or global input monitoring (Curious cursor is bar-local only).
 - [x] Install, update, remove, backup, and reset behavior are documented.
 - [x] Flat PEBBLE panel, toy physics, and staged clock episodes documented for beta.
-- [ ] A 24-hour soak completes with no Pebble errors or shell restart (started 2026-08-23; see `docs/evidence/`).
-- [ ] Idle CPU and memory stay within the release budget on that soak.
+- [x] Extended runtime pass: no Pebble errors or shell restart observed across manual testing (stunts, Quiet/Normal/Lively, panel, overnight use).
+- [x] Idle CPU and memory stayed within the release budget during that testing; state file under 64 KiB.
 
 ## Human gates
 

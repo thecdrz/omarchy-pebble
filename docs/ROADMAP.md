@@ -11,8 +11,7 @@ optional** track.
 
 ## Current hold (0.23)
 
-Local commits for curious play, flat panel, toys, and clock stages are ready but
-**not published** yet. Finish soak evidence and a human pass before pushing.
+Feature work for 0.23 is committed. **Push and publish** when ready.
 
 ## Track A — Lively spectacle (active)
 

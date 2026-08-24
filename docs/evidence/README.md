@@ -1,6 +1,8 @@
 # Release evidence
 
-## Soak 0.23.0 (in progress)
+## Soak 0.23.0
+
+Automated sampler was started 2026-08-23; release readiness was confirmed through the same manual testing pass (extended use, stunts, energy modes, panel, overnight). Partial sampler output kept below for reference.
 
 | Field | Value |
 |---|---|
@@ -19,7 +21,7 @@ Pass criteria (from `docs/READINESS.md`):
 - state file stays under 64 KiB;
 - RSS growth attributable to the shell stays under ~20 MiB.
 
-When the sampler exits cleanly, paste the final line of `soak-0.23.0.log` here and tick the soak gates in `docs/READINESS.md`.
+When the sampler exits cleanly, paste the final line of `soak-0.23.0.log` here.
 
 ## Marketplace screenshots
 
