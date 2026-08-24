@@ -2,3 +2,7 @@
 *.swp
 *.swo
 *~
+
+# Live soak samples (regenerated)
+docs/evidence/*.csv
+docs/evidence/*.log
