@@ -42,7 +42,7 @@ Use IPC `preview` / `dev` (or `PEBBLE_DEV=1` for the panel chips) to fire any st
 ## Track B — Harden after publish
 
 - [x] Marketplace screenshot refresh for 0.23 (`docs/media/discord/`, `tools/capture-marketplace-screenshots.sh`)
-- [ ] Omarchy marketplace listing publish (submitted — [issue #2015](https://github.com/HANCORE-linux/omarchy-plugin-marketplace/issues/2015))
+- [ ] Omarchy marketplace listing publish (verify issue [#2016](https://github.com/HANCORE-linux/omarchy-plugin-marketplace/issues/2016) — awaiting maintainer `approved-and-verified`)
 - Close external beta gates in `docs/READINESS.md` when desired
 
 ## Track C — Second resident
