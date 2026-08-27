@@ -2990,6 +2990,32 @@ Item {
     onFinished: root.scheduleConceptIdle()
   }
 
+  function capturePoseJson() {
+    var screen = petScreen
+    if (!screen) return JSON.stringify({ ok: false, error: "no-screen" })
+    var body = auditioning ? conceptPet : (sleeping ? den : animal)
+    var scale = body && isFinite(Number(body.scale)) ? Number(body.scale) : 1
+    var localX = body ? Number(body.x) : homeX
+    var localY = body ? Number(body.y) : 0
+    var localW = body ? Number(body.width) * scale : petWidth
+    var localH = body ? Number(body.height) * scale : petHeight
+    return JSON.stringify({
+      ok: true,
+      screen: String(screen.name || ""),
+      barPosition: String(barPosition),
+      barSize: Number(barSize),
+      panelOpen: panelOpen === true,
+      sleeping: sleeping,
+      action: String(action),
+      pebble: {
+        x: Math.round(localX),
+        y: Math.round(localY),
+        width: Math.round(localW),
+        height: Math.round(localH)
+      }
+    })
+  }
+
   IpcHandler {
     target: root.pluginId
     function pet(): void { root.poke() }
@@ -3062,6 +3088,10 @@ Item {
       else if (wanted === "off" || wanted === "false" || wanted === "0") root.setCuriousCursor(false)
       else root.toggleCuriousCursor()
     }
+    function closePanel(): void {
+      if (root.panelOpen) root.close()
+    }
+    function pose(): string { return root.capturePoseJson() }
   }
 
   PanelWindow {

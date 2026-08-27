@@ -25,4 +25,5 @@ When the sampler exits cleanly, paste the final line of `soak-0.23.0.log` here.
 
 ## Marketplace screenshots
 
-- `docs/media/discord/pebble-panel.png` — flat PEBBLE panel (0.23)
+- `docs/media/pebble-on-bar.png` — README hero / source for root `preview.png`
+- `docs/media/discord/pebble-panel.png` — PEBBLE panel for the README Care section only

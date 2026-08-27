@@ -5,7 +5,7 @@
   "version": "0.23.0",
   "author": "thecdrz",
   "license": "MIT",
-  "description": "A quiet, expressive bar penguin with a local PEBBLE panel, Quiet/Normal/Lively energy, and optional curious cursor.",
+  "description": "A quiet penguin who lives in your Omarchy bar — wanders, sleeps, and collects treasures.",
   "kinds": ["panel"],
   "keepLoaded": true,
   "entryPoints": {

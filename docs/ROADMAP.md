@@ -11,7 +11,7 @@ optional** track.
 
 ## Current hold (0.23)
 
-Code and tag `v0.23.0` are on GitHub. **Marketplace publish** when screenshots and listing copy are refreshed.
+Code and tag `v0.23.0` are on GitHub. Listing [#2016](https://github.com/HANCORE-linux/omarchy-plugin-marketplace/issues/2016) is live; the catalog card is still the portrait panel crop until a landscape bar still is verified.
 
 ## Track A — Lively spectacle (active)
 
@@ -42,7 +42,8 @@ Use IPC `preview` / `dev` (or `PEBBLE_DEV=1` for the panel chips) to fire any st
 ## Track B — Harden after publish
 
 - [x] Marketplace screenshot refresh for 0.23 (`docs/media/discord/`, `tools/capture-marketplace-screenshots.sh`)
-- [ ] Omarchy marketplace listing publish (verify issue [#2016](https://github.com/HANCORE-linux/omarchy-plugin-marketplace/issues/2016) — awaiting maintainer `approved-and-verified`)
+- [x] Omarchy marketplace listing publish (verify issue [#2016](https://github.com/HANCORE-linux/omarchy-plugin-marketplace/issues/2016))
+- [ ] Replace catalog card with the eight-pose listing still (`preview.png`)
 - Close external beta gates in `docs/READINESS.md` when desired
 
 ## Track C — Second resident

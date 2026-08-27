@@ -36,7 +36,29 @@ rg -q 'mv -fT --' Companion.qml
 rg -q 'devToolsEnabled' Companion.qml
 rg -q 'PEBBLE_DEV' Companion.qml
 rg -q 'omarchy plugin remove io.github.thecdrz.pebble' README.md
+rg -q 'omarchy plugin add https://github.com/thecdrz/omarchy-pebble.git --enable' README.md
 rg -q 'Curious cursor' PRIVACY.md
+rg -q 'capturePoseJson' Companion.qml
+rg -q 'render-listing-preview.py' docs/MARKETPLACE.md
 
 [[ -s docs/media/discord/pebble-panel.png ]]
+[[ -s docs/media/pebble-on-bar.png ]] || {
+  echo "FAIL: missing README hero docs/media/pebble-on-bar.png — see docs/MARKETPLACE.md" >&2
+  exit 1
+}
+[[ -s preview.png ]] || {
+  echo "FAIL: missing marketplace preview.png — see docs/MARKETPLACE.md" >&2
+  exit 1
+}
+
+preview_geom="$(identify -format '%w %h' preview.png)"
+# shellcheck disable=SC2086
+set -- $preview_geom
+preview_w="$1"
+preview_h="$2"
+if (( preview_w <= preview_h || preview_w < 1000 )); then
+  echo "FAIL: preview.png must be landscape and at least 1000px wide (got ${preview_w}x${preview_h}). Do not use the portrait panel crop. See docs/MARKETPLACE.md." >&2
+  exit 1
+fi
+
 echo "Release validation passed: manifest, assets, state contract, docs, and plugin structure."

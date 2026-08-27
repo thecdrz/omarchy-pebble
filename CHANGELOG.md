@@ -2,6 +2,13 @@
 
 All notable changes to Pebble are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- Marketplace listing copy leads with the penguin: shorter manifest description, README hero, install first, panel moved under Care.
+- Listing card is composed from eight runtime animation frames (`tools/render-listing-preview.py`), not a desktop screenshot.
+
 ## [0.23.0] - 2026-08-23
 
 ### Added
