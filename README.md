@@ -16,9 +16,9 @@ omarchy plugin add https://github.com/thecdrz/omarchy-pebble.git --enable
 ## What Pebble does
 
 - Wanders the full horizontal bar, including behind the center clock.
-- Sleeps, stretches, preens, slips, and belly-slides.
+- Sleeps, stretches, preens, slips, belly-slides, and on Lively/playful outings may run and leap.
 - Finds leaves, pebbles, and stars, then keeps them by the nest.
-- Quiet, Normal, and Lively energy, plus Calm motion.
+- Quiet, Normal, and Lively energy.
 - No network, analytics, global input monitoring, or cloud account.
 
 ## Interaction
@@ -29,9 +29,8 @@ omarchy plugin add https://github.com/thecdrz/omarchy-pebble.git --enable
 - Middle-click to send him walking home.
 - **Snooze 1h** pauses outings; left-click wakes him early.
 
-Defaults are **Normal** energy, **Full** motion, **Curious on**. Quiet looks
-without chasing. Lively may chase, flee, or wake from the nest. Circus stunts
-stay Lively and never run under Calm.
+Defaults are **Normal**. Quiet rests at the nest. Lively may chase, run, leap,
+and show off. Circus stunts stay Lively.
 
 ## Care
 

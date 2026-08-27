@@ -174,29 +174,83 @@ capture_panel() {
   command -v grim >/dev/null || { echo "FAIL: grim not found" >&2; exit 1; }
   command -v magick >/dev/null || { echo "FAIL: magick not found" >&2; exit 1; }
 
-  local out tmp_dir monitor_w qx left
+  local out tmp_dir pose geom crop
   out="$root_dir/docs/media/discord/pebble-panel.png"
   tmp_dir="$(mktemp -d)"
   trap 'rm -rf "$tmp_dir"' RETURN
 
   echo "Opening PEBBLE panel…"
+  ipc_try closePanel
   ipc_try sleep
   sleep 0.8
   ipc_try activity normal
   "${ipc[@]}" journal
   sleep 1.3
+  pose="$(pose_json)"
 
-  monitor_w="$(hyprctl monitors -j | python3 -c 'import json,sys
-mons=json.load(sys.stdin)
-m=next((x for x in mons if x.get("focused")), mons[0])
-print(int(m["width"]))')"
-  grim -g "0,0 ${monitor_w}x700" "$tmp_dir/full-top.png"
+  geom="$(POSE_JSON="$pose" hyprctl monitors -j | python3 -c '
+import json, os, sys
+mons = json.load(sys.stdin)
+pose = {}
+raw = os.environ.get("POSE_JSON") or ""
+if raw.strip().startswith("{"):
+    try:
+        pose = json.loads(raw)
+    except json.JSONDecodeError:
+        pose = {}
+wanted = str(pose.get("screen") or "")
+mon = next((m for m in mons if wanted and str(m.get("name") or "") == wanted), None)
+if mon is None:
+    mon = next((m for m in mons if m.get("focused")), mons[0])
+mx, my = int(mon["x"]), int(mon["y"])
+mw = int(mon["width"])
+pebble = pose.get("pebble") if pose.get("ok") else None
+cx = mx + (int(pebble["x"]) + int(pebble["width"]) / 2 if pebble else mw / 2)
+w, h = 900, 700
+sx = int(round(cx - w / 2))
+sx = max(mx, min(mx + mw - w, sx))
+print(f"{sx},{my} {w}x{h}")
+')"
+  grim -g "$geom" "$tmp_dir/near-pebble.png"
 
-  qx="$(tesseract "$tmp_dir/full-top.png" stdout tsv 2>/dev/null | awk -F'\t' 'NR>1 && $12=="Quiet" && $7>400 {print $7; exit}')"
-  [[ -n "$qx" ]] || { echo "FAIL: could not locate Quiet button in panel" >&2; exit 1; }
+  crop="$(tesseract "$tmp_dir/near-pebble.png" stdout tsv 2>/dev/null | python3 -c '
+import sys
+words = []
+for i, line in enumerate(sys.stdin):
+    if i == 0:
+        continue
+    parts = line.rstrip("\n").split("\t")
+    if len(parts) < 12:
+        continue
+    text = parts[11].strip()
+    try:
+        left, top, width, height, conf = map(float, parts[6:11])
+    except ValueError:
+        continue
+    if conf < 25 or not text:
+        continue
+    words.append((text, left, top, width, height))
 
-  left=$((qx - 28))
-  magick "$tmp_dir/full-top.png" -crop "372x455+${left}+28" +repage \
+def find(*names):
+    return next((w for w in words if w[0] in names), None)
+
+title = find("PEBBLE", "Pebble")
+quiet = find("Quiet")
+close = find("Close")
+if quiet is None or title is None:
+    sys.exit(1)
+left = int(title[1] - 16)
+top = int(title[2] - 14)
+# Energy row is ~340px wide; Quiet is the left chip under the title.
+right = int(max(title[1] + 340, (close[1] + close[3] + 24) if close else title[1] + 340))
+bottom = int((close[2] + close[4] + 18) if close else quiet[2] + 90)
+left = max(0, left)
+top = max(0, top)
+print(f"{int(right-left)}x{int(bottom-top)}+{left}+{top}")
+')"
+  [[ -n "$crop" ]] || { echo "FAIL: could not locate ENERGY/Quiet on the PEBBLE panel" >&2; exit 1; }
+
+  magick "$tmp_dir/near-pebble.png" -crop "$crop" +repage \
     -bordercolor '#1a1b26' -border 12 \
     "$out"
 

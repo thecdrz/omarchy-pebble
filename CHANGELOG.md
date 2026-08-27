@@ -4,8 +4,15 @@ All notable changes to Pebble are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Distance-locked walk cadence, a Lively/playful run gait, and occasional leaps (Quiet keeps the walk).
+
 ### Changed
 
+- PEBBLE panel energy is the only mood control: Quiet rests (calm, no pointer), Normal wanders, Lively plays. Curious, Calm, and the unused LOCAL badge are gone.
+
+- Penguin frames are grounded, centered, and palette-lifted so the silhouette reads without a runtime glow pass.
 - Marketplace listing copy leads with the penguin: shorter manifest description, README hero, install first, panel moved under Care.
 - Listing card is composed from eight runtime animation frames (`tools/render-listing-preview.py`), not a desktop screenshot.
 

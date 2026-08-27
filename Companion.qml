@@ -20,9 +20,9 @@ Item {
   readonly property string speciesName: speciesId === "penguin" ? "Penguin" : speciesId === "gecko" ? "Leopard gecko" : "Raccoon"
   readonly property bool isGecko: speciesId === "gecko"
   readonly property bool isPenguin: speciesId === "penguin"
-  // Soft lift so dark penguin art reads on dark bars without full recolor.
-  readonly property real petColorization: isPenguin ? 0.40 : isGecko ? 0.12 : 0.18
-  readonly property real petBrightness: isPenguin ? 0.18 : 0
+  // Baked lighter penguin palette; keep a light tint so he still tracks the bar theme.
+  readonly property real petColorization: isPenguin ? 0.08 : isGecko ? 0.12 : 0.18
+  readonly property real petBrightness: 0
   // Belly-slide frames 4–5 fill ~2× the canvas vs walk; compensate so he doesn't balloon.
   readonly property real slideVisualScale: {
     if (action !== "sliding")
@@ -76,6 +76,11 @@ Item {
   property bool pauseOnRoute: false
   property bool finalCuriosity: false
   property real pace: 96
+  property string gait: "walk"
+  property real strideAccum: 0
+  property real lastStrideX: 0
+  property int leapsCompleted: 0
+  property double lastLeapAt: 0
   property int pokeCount: 0
   property double lastPoke: 0
   property bool playfulQueued: false
@@ -350,12 +355,37 @@ Item {
     : episodeName === "fishing" ? "Fishing a puddle on the bar"
     : episodeName === "sneeze" ? "Fighting a historic sneeze"
     : episodeName === "zoomies" ? "Experiencing sudden zoomies"
+    : gait === "run" && action === "walk" && journeyPhase === "outbound" ? "Running for the joy of it"
+    : gait === "run" && action === "walk" ? "Hurrying home"
     : personalityMood === "playful" ? "Looking for trouble"
     : personalityMood === "curious" ? "Exploring the bar"
     : "Taking a quiet wander"
 
   Behavior on storyPetOffset { NumberAnimation { duration: 360; easing.type: Easing.InOutCubic } }
 
+  // Stride cadence follows real travel so feet never slide: frames advance per
+  // pixel traveled, which keeps acceleration ramps and cruise visually honest.
+  onPetXChanged: {
+    if (discoveryVisible) considerToyNudge()
+    if (action !== "walk" && action !== "clockApproach") { strideAccum = 0; lastStrideX = petX; return }
+    strideAccum += Math.abs(petX - lastStrideX)
+    lastStrideX = petX
+    var strideLength = gait === "run" && action === "walk" ? 16 : 10
+    while (strideAccum >= strideLength) {
+      strideAccum -= strideLength
+      walkFrame = (walkFrame + 1) % 6
+      if (gait === "run" && action === "walk" && walkFrame % 3 === 0
+        && !reducedMotion && !leapAnimation.running) runBounce.restart()
+    }
+  }
+
+  function stopRunGait() {
+    leapTimer.stop(); leapAnimation.stop(); runBounce.stop(); landSquashRecover.stop()
+    gait = "walk"
+    animal.leanRotation = 0
+    animal.hopOffset = 0
+    animal.landSquash = 1
+  }
   function clampX(value) { return Math.max(worldMinX, Math.min(worldMaxX, value)) }
   function clampLaneX(value) { return Math.max(laneMinX, Math.min(laneMaxX, value)) }
   // Bar-lane Y for props: same band as the penguin silhouette (no above/below bar space).
@@ -691,7 +721,7 @@ Item {
   function wakeAndWalk(interactive) {
     if (!placed || barHidden || !horizontalBar) return
     if (auditioning) { startConceptMotion(true); return }
-    if (walking) { walkMotion.stop(); acknowledgeAnimation.restart(); return }
+    if (walking) { walkMotion.stop(); stopRunGait(); acknowledgeAnimation.restart(); return }
     roamTimer.stop(); peekTimer.stop(); peekAnimation.stop(); peeking = false
     curiosityAnimation.stop(); settleTurn.stop(); poseTimer.stop()
     pendingInteractiveWake = interactive === true
@@ -760,16 +790,28 @@ Item {
     direction = targetX >= petX ? 1 : -1
     var legDistance = Math.abs(targetX - petX)
     distanceWalked += Math.round(legDistance); saveState()
-    action = "walk"; walkFrame = 0
+    var wantsRun = isPenguin && !reducedMotion && carriedItem === "" && !pauseOnRoute
+      && personalityMood !== "sleepy" && storyName === "" && legDistance > 360
+      && (personalityMood === "playful" || activityLevel === 2)
+    gait = wantsRun ? "run" : "walk"
+    if (wantsRun) pace = Math.max(pace, 205 + Math.random() * 40)
+    animal.leanRotation = wantsRun ? 7 : 0
+    action = "walk"; walkFrame = 0; strideAccum = 0; lastStrideX = petX
     walkMotion.from = petX; walkMotion.to = targetX
     var naturalDuration = Math.round(legDistance / pace * 1000)
     var maxLegDuration = personalityMood === "sleepy" ? 10000 : personalityMood === "playful" ? 13000 : 14000
     walkMotion.duration = Math.max(620, Math.min(maxLegDuration, naturalDuration))
     if (naturalDuration > maxLegDuration) pace = legDistance / (maxLegDuration / 1000)
     walkMotion.restart()
+    if (wantsRun && Date.now() - lastLeapAt > 6000
+      && Math.random() < (activityLevel === 2 ? 0.55 : 0.3)) {
+      leapTimer.interval = Math.max(500, walkMotion.duration * (0.3 + Math.random() * 0.35))
+      leapTimer.restart()
+    } else leapTimer.stop()
   }
   function legFinished() {
     petX = targetX
+    stopRunGait()
     if (journeyPhase === "returning") { beginEntering(); return }
     var slipChance = activityLevel === 2 ? 0.20 : 0.10
     if (isPenguin && !reducedMotion && !pauseOnRoute && personalityMood !== "sleepy" && carriedItem === ""
@@ -948,7 +990,6 @@ Item {
     saveState()
   }
 
-  onPetXChanged: if (discoveryVisible) considerToyNudge()
   onDiscoveryVisibleChanged: {
     if (!discoveryVisible) {
       toyIdleBounce.stop()
@@ -1023,6 +1064,7 @@ Item {
     markEpisode(suspicious ? "retreat" : (forcedStyle === "magic" ? "magic" : "clock"))
     walkMotion.stop(); slideMotion.stop(); slipMotion.stop(); poseTimer.stop(); curiosityAnimation.stop()
     slideTimer.stop(); slipTimer.stop(); idleActionTimer.stop(); idleBlendAnimation.stop(); idleTransitionMotion.stop()
+    stopRunGait()
     clearStoryProp()
     var escapedToy = clockChaseItem
     clockStyle = forcedStyle || (escapedToy !== "" ? "chase" : chooseClockStyle(suspicious === true))
@@ -1081,6 +1123,7 @@ Item {
   function startClockTransit(destination, transitDirection) {
     if (!isPenguin || !placed || clockApproach.running || clockOcclusion.running || clockTransitOcclusion.running) return
     walkMotion.stop(); poseTimer.stop(); curiosityAnimation.stop(); idleActionTimer.stop()
+    stopRunGait()
     clockTransit = true
     clockTransitDirection = transitDirection
     clockTransitDestination = clampX(destination)
@@ -1169,22 +1212,31 @@ Item {
       poseFrame = 0; action = "settling"; poseTimer.interval = 150; poseTimer.restart()
     } else { poseFrame = 7; action = "entering"; poseTimer.interval = 145; poseTimer.restart() }
   }
-  function startSlide() {
+  function startSlide(entrySpeed) {
     if (!isPenguin || !placed || slideMotion.running) return
     markEpisode("slide")
     walkMotion.stop(); poseTimer.stop(); curiosityAnimation.stop(); playfulAnimation.stop(); idleActionTimer.stop()
+    leapTimer.stop(); runBounce.stop()
+    gait = "walk"
+    animal.leanRotation = 0
     var rightRoom = worldMaxX - petX
     var leftRoom = petX - worldMinX
     direction = rightRoom >= 105 || rightRoom >= leftRoom ? 1 : -1
     personalityMood = "playful"; episodeName = "belly-slide"
     targetX = clampX(petX + direction * (72 + Math.random() * 58))
     poseFrame = 0; action = "sliding"
-    slideMotion.from = petX; slideMotion.to = targetX; slideMotion.restart(); slideTimer.restart()
+    slideMotion.from = petX; slideMotion.to = targetX
+    slideMotion.duration = entrySpeed
+      ? Math.max(520, Math.round(Math.abs(targetX - petX) / entrySpeed * 1000))
+      : 1050
+    slideTimer.interval = Math.max(60, Math.round(slideMotion.duration / 8))
+    slideMotion.restart(); slideTimer.restart()
   }
   function startSlip() {
     if (!isPenguin || !placed) return
     markEpisode("slip")
     walkMotion.stop(); poseTimer.stop(); curiosityAnimation.stop(); idleActionTimer.stop(); idleBlendAnimation.stop(); idleTransitionMotion.stop()
+    stopRunGait()
     var rightRoom = worldMaxX - petX
     var leftRoom = petX - worldMinX
     if ((direction > 0 && rightRoom < 38) || (direction < 0 && leftRoom < 38)) direction *= -1
@@ -1202,6 +1254,22 @@ Item {
     else if (playfulQueued) { playfulQueued = false; startSlide() }
     else { idleBeatsRemaining = 2; showIdleBeat() }
   }
+  function startLeap() {
+    if (action !== "walk" || gait !== "run" || reducedMotion) return
+    lastLeapAt = Date.now()
+    leapAnimation.restart()
+  }
+  function landFromLeap() {
+    leapsCompleted++
+    saveState()
+    landSquashRecover.restart()
+    if (Math.random() < 0.4 && episodeReady("slide")
+      && recentEpisodes.slice(0, 3).indexOf("slide") < 0) {
+      startSlide(Math.max(180, pace))
+      return
+    }
+    animal.leanRotation = gait === "run" ? 7 : 0
+  }
   function storyDelay(milliseconds) {
     storyTimer.interval = milliseconds
     storyTimer.restart()
@@ -1214,7 +1282,8 @@ Item {
     hoopVisible = false; hoopOpacity = 0; hoopScale = 1; hoopGlow = 0
     cannonVisible = false; cannonOpacity = 0; cannonScale = 1; cannonFlash = false
     storyPetInFront = false
-    animal.sniffRotation = 0; animal.hopOffset = 0
+    stopRunGait()
+    animal.sniffRotation = 0
   }
   function startQueuedStory() {
     if (storyQueued === "") { beginIdleRoutine(); return }
@@ -1935,6 +2004,7 @@ Item {
     sleepFrame = 0; idleBeatsRemaining = 0; outingActsRemaining = 0; playfulQueued = false; retreatQueued = false; clockQueued = false; slipQueued = false
     episodeName = ""; clockTransit = false; clockTransitEpisode = ""; clockStyle = ""; clockChaseItem = ""; animalOpacity = 1; discoveryVisible = false; discoveryItem = ""; toyVx = 0; toyFumblePending = false; toyEdgeHits = 0; personalityMood = "sleepy"
     animal.sniffRotation = 0; animal.hopOffset = 0; animal.breathScale = 1
+    animal.leanRotation = 0; animal.landSquash = 1; gait = "walk"
     peeking = false; rustling = false; peekOpacity = 0; scheduleRoam(); schedulePeek(); scheduleSleepMarker()
   }
   function goHomeGracefully() {
@@ -1956,6 +2026,7 @@ Item {
     rustleAnimation.stop(); settleTurn.stop(); poseTimer.stop(); conceptTravel.stop(); slideMotion.stop(); slideTimer.stop()
     slipMotion.stop(); slipTimer.stop(); clockApproach.stop(); clockOcclusion.stop(); clockTransitOcclusion.stop()
     idleActionTimer.stop(); idleBlendAnimation.stop(); idleTransitionMotion.stop()
+    stopRunGait()
     animalOpacity = 1
     chaseTargetX = -1
     pendingInteractiveWake = false
@@ -1991,6 +2062,7 @@ Item {
     }
     if (storyName !== "") cancelStory()
     walkMotion.stop(); curiosityAnimation.stop(); acknowledgeAnimation.stop(); playfulAnimation.stop()
+    stopRunGait()
     // Poke chain still unlocks slide / clock hide; first poke often rolls a surprise.
     if (!reducedMotion && pokeCount >= 3 && isPenguin) {
       startClockEpisode(true)
@@ -2110,6 +2182,7 @@ Item {
       starsFound = safeCounter(data.stars)
       slidesCompleted = safeCounter(data.slides)
       slipsCompleted = safeCounter(data.slips)
+      leapsCompleted = safeCounter(data.leaps)
       clockPassages = safeCounter(data.passages)
       suspiciousRetreats = safeCounter(data.retreats)
       recentEvent = String(data.recentEvent || "I'm Pebble. I wander the whole bar, rest here, and remember what I find.").slice(0, 240)
@@ -2124,9 +2197,8 @@ Item {
       lastDirectedEpisodeAt = safeTimestamp(data.lastDirectedEpisodeAt, Date.now() + 60000)
       var storedActivity = Number(data.activity)
       activityLevel = isNaN(storedActivity) ? 1 : Math.max(0, Math.min(2, storedActivity))
-      reducedMotion = data.reducedMotion === true
+      applyEnergyProfile(activityLevel)
       introSeen = data.introSeen === true
-      curiousCursor = ("curiousCursor" in data) ? data.curiousCursor === true : true
       gestureHintShown = data.gestureHintShown === true
       firstMetAt = safeTimestamp(data.firstMetAt, Date.now() + 60000)
       lastSeenDay = /^\d{4}-\d{2}-\d{2}$/.test(String(data.lastSeenDay || "")) ? String(data.lastSeenDay) : ""
@@ -2146,7 +2218,7 @@ Item {
     var payload = JSON.stringify({
       version: 9, species: speciesId, concept: conceptId, outings: outings, pokes: totalPokes,
       distance: distanceWalked, leaves: leavesFound, pebbles: pebblesFound,
-      stars: starsFound, slides: slidesCompleted, slips: slipsCompleted,
+      stars: starsFound, slides: slidesCompleted, slips: slipsCompleted, leaps: leapsCompleted,
       passages: clockPassages, retreats: suspiciousRetreats, recentEvent: recentEvent,
       recentEventAt: recentEventAt, recentEventPriority: recentEventPriority,
       episodeTimes: episodeTimes, lastDirectedEpisode: lastDirectedEpisode, lastDirectedEpisodeAt: lastDirectedEpisodeAt,
@@ -2184,11 +2256,18 @@ Item {
       "pebble-state-write", statePath, activeStatePayload]
     stateWriteProc.running = true
   }
-  function cycleActivity() { activityLevel = (activityLevel + 1) % 3; saveState(); scheduleRoam() }
+  function applyEnergyProfile(level) {
+    activityLevel = Math.max(0, Math.min(2, Number(level) || 0))
+    // Quiet is the calm/privacy mode. Normal and Lively are fully alive.
+    reducedMotion = activityLevel === 0
+    curiousCursor = activityLevel !== 0
+    if (!curiousCursor) { cursorBarX = -1; curiousLean = 0 }
+  }
+  function cycleActivity() { setActivityLevel((activityLevel + 1) % 3) }
   function setActivityLevel(level) {
     var next = Math.max(0, Math.min(2, Number(level) || 0))
     var enteringQuiet = next === 0 && activityLevel !== 0
-    activityLevel = next
+    applyEnergyProfile(next)
     saveState(); scheduleRoam()
     if (enteringQuiet && !sleeping && placed && !barHidden) goHomeGracefully()
   }
@@ -2233,8 +2312,8 @@ Item {
     idleFrame = 7
     poseFrame = 0
     walkFrame = 0
+    stopRunGait()
     animal.sniffRotation = 0
-    animal.hopOffset = 0
     animalOpacity = 1
   }
   function prepareDevStage() {
@@ -2245,6 +2324,7 @@ Item {
     slideMotion.stop(); slideTimer.stop(); slipMotion.stop(); slipTimer.stop()
     clockApproach.stop(); clockOcclusion.stop(); clockTransitOcclusion.stop()
     idleActionTimer.stop(); idleBlendAnimation.stop(); idleTransitionMotion.stop()
+    stopRunGait()
     roamTimer.stop(); peekTimer.stop()
     storyPetOffset = 0
     storyPetInFront = false
@@ -2353,6 +2433,7 @@ Item {
     var scoot = clampX(petX + deltaX)
     if (Math.abs(scoot - petX) < 10) return false
     walkMotion.stop()
+    stopRunGait()
     curiosityAnimation.stop()
     acknowledgeAnimation.stop()
     playfulAnimation.stop()
@@ -2405,6 +2486,7 @@ Item {
       lastCuriousScootAt = Date.now()
       if (lively && playMood >= 0 && Math.abs(delta) > 56) {
         walkMotion.stop()
+        stopRunGait()
         var toward = clampX(petX + Math.min(120, Math.max(48, Math.abs(delta) * 0.55)) * (lean >= 0 ? 1 : -1))
         if (Math.abs(toward - petX) > 10) {
           root.targetX = toward
@@ -2434,7 +2516,12 @@ Item {
   }
   function toggleReducedMotion() {
     reducedMotion = !reducedMotion
-    if (reducedMotion && (action === "sliding" || action === "slipping")) goToSleep()
+    if (reducedMotion) {
+      if (action === "sliding" || action === "slipping") goToSleep()
+      else stopRunGait()
+    } else {
+      stopRunGait()
+    }
     saveState(); scheduleRoam()
   }
   function snoozeOneHour() {
@@ -2671,11 +2758,14 @@ Item {
   }
   Timer { id: peekTimer; onTriggered: root.startHomeMoment() }
   Timer {
-    interval: Math.max(76, Math.round(122 - root.pace * 0.25)); repeat: true; running: root.walking
-    onTriggered: root.walkFrame = (root.walkFrame + 1) % 6
+    id: leapTimer
+    onTriggered: {
+      if (root.action === "walk" && root.gait === "run" && !root.reducedMotion
+        && root.journeyPhase === "outbound" && root.carriedItem === "") root.startLeap()
+    }
   }
   NumberAnimation {
-    id: walkMotion; target: root; property: "petX"; easing.type: Easing.InOutCubic
+    id: walkMotion; target: root; property: "petX"; easing.type: Easing.InOutQuad
     onFinished: root.legFinished()
   }
   NumberAnimation {
@@ -2813,6 +2903,28 @@ Item {
     }
   }
   NumberAnimation { id: slipMotion; target: root; property: "petX"; duration: 1100; easing.type: Easing.OutCubic }
+  SequentialAnimation {
+    id: runBounce
+    NumberAnimation { target: animal; property: "hopOffset"; to: -1.7; duration: 55; easing.type: Easing.OutQuad }
+    NumberAnimation { target: animal; property: "hopOffset"; to: 0; duration: 60; easing.type: Easing.InQuad }
+  }
+  SequentialAnimation {
+    id: leapAnimation
+    ParallelAnimation {
+      NumberAnimation { target: animal; property: "hopOffset"; to: -7.5; duration: 210; easing.type: Easing.OutQuad }
+      NumberAnimation { target: animal; property: "leanRotation"; to: -9; duration: 200; easing.type: Easing.OutQuad }
+    }
+    ParallelAnimation {
+      NumberAnimation { target: animal; property: "hopOffset"; to: 0; duration: 175; easing.type: Easing.InQuad }
+      NumberAnimation { target: animal; property: "leanRotation"; to: 12; duration: 175; easing.type: Easing.InQuad }
+    }
+    ScriptAction { script: root.landFromLeap() }
+  }
+  SequentialAnimation {
+    id: landSquashRecover
+    NumberAnimation { target: animal; property: "landSquash"; to: 0.82; duration: 55; easing.type: Easing.OutQuad }
+    NumberAnimation { target: animal; property: "landSquash"; to: 1; duration: 150; easing.type: Easing.OutQuad }
+  }
   NumberAnimation { id: idleBlendAnimation; target: root; property: "idleBlend"; to: 1; duration: 155; easing.type: Easing.InOutSine }
   SequentialAnimation {
     id: idleTransitionMotion
@@ -2850,7 +2962,7 @@ Item {
     NumberAnimation { target: den; property: "rustleRotation"; to: 0; duration: 100; easing.type: Easing.OutQuad }
     ScriptAction { script: root.beginEmergence(root.pendingInteractiveWake) }
     onStopped: {
-      root.rustleWatchdog.stop()
+      if (root.rustleWatchdog) root.rustleWatchdog.stop()
       if (root.rustling && root.sleeping)
         root.beginEmergence(root.pendingInteractiveWake)
     }
@@ -3065,10 +3177,10 @@ Item {
     }
     function motion(mode: string): void {
       var wanted = String(mode || "").toLowerCase()
-      if (wanted === "reduced" || wanted === "on") root.reducedMotion = true
-      else if (wanted === "full" || wanted === "off") root.reducedMotion = false
-      else root.reducedMotion = !root.reducedMotion
-      root.saveState(); root.scheduleRoam()
+      if (wanted === "reduced" || wanted === "on" || wanted === "calm") root.setActivityLevel(0)
+      else if (wanted === "full" || wanted === "off") {
+        if (root.activityLevel === 0) root.setActivityLevel(1)
+      } else root.setActivityLevel(root.activityLevel === 0 ? 1 : 0)
     }
     function journal(): void {
       if (root.panelOpen) root.close()
@@ -3182,8 +3294,9 @@ Item {
         mipmap: false
         layer.enabled: true
         layer.effect: MultiEffect {
-          brightness: root.petBrightness
-          colorization: root.petColorization
+          // Sleep-loop frames were not palette-lifted; keep the 0.23 nest brightness.
+          brightness: root.isPenguin ? 0.18 : 0
+          colorization: root.isPenguin ? 0.22 : root.petColorization
           colorizationColor: Color.bar.text
         }
       }
@@ -3325,12 +3438,21 @@ Item {
       property real sniffOffset: 0
       property real sniffRotation: 0
       property real hopOffset: 0
+      property real leanRotation: 0
+      property real landSquash: 1
       x: root.petX + root.storyPetOffset; y: Math.round((habitat.height - height) / 2 + sniffOffset + hopOffset)
-      width: root.petWidth; height: root.petHeight; rotation: sniffRotation; scale: breathScale * root.slideVisualScale
+      width: root.petWidth; height: root.petHeight; rotation: sniffRotation + leanRotation; scale: breathScale * root.slideVisualScale
       visible: !root.sleeping
       opacity: root.animalOpacity
       z: root.cannonVisible && root.storyName === "cannon" ? 8 : (root.storyPetInFront ? 6 : 2)
-      transform: Scale { origin.x: animal.width / 2; origin.y: animal.height / 2; xScale: root.direction }
+      transform: [
+        Scale { origin.x: animal.width / 2; origin.y: animal.height / 2; xScale: root.direction },
+        Scale {
+          origin.x: animal.width / 2; origin.y: animal.height
+          xScale: animal.landSquash < 1 ? 1 + (1 - animal.landSquash) * 0.55 : 1
+          yScale: animal.landSquash
+        }
+      ]
 
       component PetImage: Image {
         anchors.fill: parent; fillMode: Image.PreserveAspectFit; smooth: false; mipmap: false; cache: true
@@ -3501,16 +3623,6 @@ Item {
           font.pixelSize: 15
           font.bold: true
         }
-        Item { width: Math.max(8, parent.width - panelTitle.implicitWidth - localBadge.implicitWidth); height: 1 }
-        Text {
-          id: localBadge
-          text: "LOCAL"
-          color: Color.bar.text
-          opacity: 0.55
-          font.pixelSize: 10
-          font.bold: true
-          anchors.verticalCenter: panelTitle.verticalCenter
-        }
       }
       Rectangle { width: parent.width; height: 1; color: Color.accent; opacity: 0.5 }
 
@@ -3673,68 +3785,11 @@ Item {
       }
       Text {
         width: parent.width
-        text: "Quiet sleeps · Normal wanders · Lively shows off"
+        text: "Quiet rests · Normal wanders · Lively plays"
         color: Color.bar.text
         opacity: 0.62
         font.pixelSize: 11
         wrapMode: Text.WordWrap
-      }
-
-      Row {
-        spacing: 8
-        Rectangle {
-          width: Math.floor((panelColumn.width - 8) / 2)
-          height: 30
-          radius: 6
-          color: "transparent"
-          border.width: 1
-          border.color: Color.accent
-          Rectangle {
-            anchors.fill: parent; anchors.margins: 1; radius: 5
-            color: Color.accent
-            opacity: root.curiousCursor ? 0.30 : (curiousAct.containsMouse ? 0.16 : 0.06)
-          }
-          Text {
-            anchors.centerIn: parent
-            text: "Curious · " + root.curiousCursorName
-            color: Color.bar.text
-            font.pixelSize: 12
-            font.bold: true
-          }
-          MouseArea {
-            id: curiousAct
-            anchors.fill: parent
-            hoverEnabled: true
-            onClicked: { root.acknowledgeIntro(); root.toggleCuriousCursor() }
-          }
-        }
-        Rectangle {
-          width: Math.ceil((panelColumn.width - 8) / 2)
-          height: 30
-          radius: 6
-          color: "transparent"
-          border.width: calmAct.containsMouse || root.reducedMotion ? 1 : 0
-          border.color: Color.accent
-          Rectangle {
-            anchors.fill: parent
-            radius: parent.radius
-            color: root.reducedMotion || calmAct.containsMouse ? Color.accent : Color.bar.text
-            opacity: root.reducedMotion ? 0.28 : (calmAct.containsMouse ? 0.16 : 0.08)
-          }
-          Text {
-            anchors.centerIn: parent
-            text: root.reducedMotion ? "Calm motion" : "Full motion"
-            color: Color.bar.text
-            opacity: 0.88
-            font.pixelSize: 12
-          }
-          MouseArea {
-            id: calmAct
-            anchors.fill: parent
-            hoverEnabled: true
-            onClicked: { root.acknowledgeIntro(); root.toggleReducedMotion() }
-          }
-        }
       }
 
       Text {

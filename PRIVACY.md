@@ -9,14 +9,13 @@ Pebble observes only the minimum shell context needed to inhabit the bar:
 - focused monitor and workspace changes, for placement and occasional ambient reactions;
 - bar position, size, visibility, and widget geometry, for safe movement;
 - direct clicks and explicit Pebble IPC actions;
-- when **Curious cursor** is enabled, pointer position only while the cursor is inside
-  the bar strip on the focused monitor (look / lean / rare scoot reactions).
+- when energy is **Normal** or **Lively**, pointer position only while the cursor is
+  inside the bar strip on the focused monitor (look / lean / rare scoot reactions).
 
-Curious cursor is **on by default** (bar-local only). Turn it off in the PEBBLE
-panel anytime. Disabling it returns Pebble to body-only pointer awareness (hover
-and clicks on Pebble's sprite). Pebble never tracks the pointer across the wider
-desktop, and click handling remains limited to Pebble's own sprite so other bar
-modules stay usable.
+**Quiet** does not read the pointer. Pointer watching is on for Normal and Lively
+and cannot be mixed independently in the PEBBLE panel; energy is the single
+control. Pebble never tracks the pointer across the wider desktop, and click
+handling remains limited to Pebble's own sprite so other bar modules stay usable.
 
 Pebble does not read window titles, application contents, keyboard input, pointer
 movement outside the bar habitat (or outside its body when Curious cursor is off),

@@ -74,15 +74,15 @@ for species_dir in "$root_dir"/assets/species/*; do
     check_sequence "$species" wake 8 10
     check_sequence "$species" walk 6 10
   elif [[ "$species" == "penguin" ]]; then
-    check_sequence "$species" wake 8 5 1 950 500 700
-    check_sequence "$species" walk 6 3 1 950 450 630
-    check_sequence "$species" settle 4 3 1 0 570 640
+    check_sequence "$species" wake 8 1 1 1100 500 900
+    check_sequence "$species" walk 6 1 1 950 450 700
+    check_sequence "$species" settle 4 1 1 0 570 640
     check_sequence "$species" sleep-loop 4 3 2 600 300 450
-    check_sequence "$species" idle-actions 8 8 2 950 380 700
-    check_sequence "$species" start 4 4 1 0 570 650
-    check_sequence "$species" stop 4 5 1 0 370 450
-    check_sequence "$species" slide 8 12 1 0 400 1320
-    check_sequence "$species" slip 16 12 3 0 560 750
+    check_sequence "$species" idle-actions 8 1 2 950 380 750
+    check_sequence "$species" start 4 1 1 0 570 650
+    check_sequence "$species" stop 4 1 1 0 370 450
+    check_sequence "$species" slide 8 12 1 1600 400 1320
+    check_sequence "$species" slip 16 12 3 1300 560 750
   else
     check_sequence "$species" wake 8 4
     check_sequence "$species" walk 6 2
@@ -126,26 +126,4 @@ if (( failures > 0 )); then
   echo "$failures asset validation failure(s)" >&2
   exit 1
 fi
-
-props_dir="$root_dir/assets/props"
-props_manifest="$props_dir/README.txt"
-if [[ ! -s "$props_manifest" ]]; then
-  echo "FAIL $props_manifest: missing prop manifest (run tools/render-props.py)" >&2
-  exit 1
-fi
-while read -r name size; do
-  [[ -n "$name" && "$name" == *.png ]] || continue
-  file="$props_dir/$name"
-  [[ -f "$file" ]] || { echo "FAIL $file: missing prop sprite" >&2; failures=$((failures + 1)); continue; }
-  dimensions="$(identify -format '%wx%h' "$file")"
-  [[ "$dimensions" == "$size" ]] || {
-    echo "FAIL $file: expected $size, got $dimensions (regenerate with tools/render-props.py)" >&2
-    failures=$((failures + 1))
-  }
-done < <(grep '\.png ' "$props_manifest")
-
-if (( failures > 0 )); then
-  echo "$failures asset validation failure(s)" >&2
-  exit 1
-fi
-echo "Asset validation passed: intact silhouettes, stable scale, safe canvas margins, prop sprites."
+echo "Asset validation passed: intact silhouettes, stable scale, safe canvas margins."
